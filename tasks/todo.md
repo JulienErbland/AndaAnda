@@ -236,3 +236,28 @@ matches, synced to bench frames.
   - kick-offs 31 of 32.
 - Use: reference for direction 1 (restart frame, kind, team) and direction 2 (passes,
   interceptions, tackles), and simulated Smart Tagging set pieces for the hackathon priors.
+
+---
+
+# Benchmark (Oct 20): docs/benchmark.md, scripts/benchmark.py
+
+The priorities are revised by the oracle ceilings (gain over M2 0.519 if one error type were
+perfect):
+- team in live play +0.39;
+- short possessions +0.24 (DFL-inflated);
+- hand-overs +0.18;
+- ball gaps +0.17;
+- stoppage starts +0.11;
+- restarts +0.04;
+- ball always tracked +0.04;
+- timing +0.03;
+- dead/alive +0.02.
+
+New order:
+1. Direction 2, touch/control detector (team at hand-overs; 86% of misses start with a hand-over,
+   and most happen with the ball visible).
+2. Direction 1 re-aimed at stoppage starts: who touched it last before the ball went out.
+   Restarts alone have a low ceiling.
+3. Direction 3 (gaps) via more data (PFF) or video, not more features.
+- Optional free change: switch 10 -> 5 (+0.006, wins on 7 of 7 matches, real-match durations
+  closer to the public labels).
