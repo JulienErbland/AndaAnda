@@ -1,0 +1,20 @@
+[project]
+name = "mtah-possession"
+version = "0.1.0"
+description = "More than a Hack 2027 Phase 1: per-frame ball possession (H/A/D) from automatic tracking"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "numpy",
+    "pandas",
+    "matplotlib",
+]
+
+[dependency-groups]
+dev = ["pytest"]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

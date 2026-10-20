@@ -1,0 +1,18 @@
+# Hackathon match data is gated: never commit it, nor anything frame-level derived from it.
+data/
+official_data/
+*.mp4
+submissions/
+
+# External benchmark data (DFL, Metrica): large, re-downloadable with `python -m bench fetch`.
+external/
+
+# Generated output
+reports/
+*.npz
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
