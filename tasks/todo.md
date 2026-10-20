@@ -162,3 +162,50 @@ possession. Two remedies, measured separately:
 - Duration priors are redundant with the learned probabilities plus the switch penalty.
 - `possession/hsmm.py` is kept (exact vs brute force) but not adopted. The next lever for ball gaps
   is better gap features (what separates a live gap from a stoppage), not the decoder.
+
+---
+
+# Next directions (Oct 20): three ways to fix M2's weak spots
+
+Specs written first:
+- `tests/test_directions.py`: 13 unit specs on synthetic situations (`tests/toys.py`),
+  xfail(strict) until built; the toy geometry was checked numerically.
+- `tests/test_targets.py`: bench gates, run with `pytest -m slow`, about 25 s. 7 floors pass today;
+  8 targets are xfail until reached. When an XPASS is reported, move that target into FLOORS.
+
+## Direction 1: restart detector (`possession/restarts.py`)
+Weak spots: restart_same 56%, restart_other 55%, kickoff 12%.
+Idea: every restart is a visible ball standing still for >= 1.5 s that then moves. Where it stands
+gives the kind (centre spot = kick-off, touchline = throw-in, corner, goal area = goal kick, else
+free kick). The nearest player when it moves gives the restarting team. Turn detections into
+per-frame features for the LightGBM ("time since/until a restart", "restart team", "kind") and
+sharpen the decoder's D -> H/A switch at a detected restart. On the hackathon match, also use
+Smart Tagging `SET PIECES` (Type/Team) as a second source (throw-ins have Team = N/A: take the
+team from the detector).
+- [ ] specs: kick-off, throw-in, kind by position (corner, goal kick, free kick), none in open play
+- [ ] targets: restart_same >= 70%, restart_other >= 70%, kickoff >= 50%
+
+## Direction 2: touch / control detector (`possession/touches.py`)
+Weak spots: interception 28%, short_spell 4%.
+Idea: replace "nearest player within 1.5 m" with real touch events. A control is the ball
+slowing to a player's pace and staying with him for >= 0.4 s; a deflection is a > 30 degree turn
+of the ball near a player, with no control after it. A pass flying past an opponent is no touch.
+Feed "last/next control team, time since/until" from these events into the model, and refine
+each predicted hand-over to the frame of the control that caused it.
+- [ ] specs: interception = control, pass past an opponent = nothing, deflection != control,
+      a 0.8 s control still counts
+- [ ] targets: interception >= 40%, short_spell >= 15%
+
+## Direction 3: ball-gap reasoning (`possession/gaps.py`)
+Weak spots: change_in_ball_gap 25%, ball_gap_hold 23%, blackout_change 14%. M3 showed the
+decoder isn't the problem: the evidence in gaps is.
+Idea: describe each ball gap as a whole: who lost and who found the ball; the implied ball speed
+from the last-seen to the next-seen point (live passes are plausible, a stoppage is ~0); the
+fastest players' speed during the gap (live gaps have sprinters); and whether the team shapes flip
+mid-gap (an attacking team retreating means it lost the ball). Add these as features. Later, if
+needed, re-detect the ball in the tactical video (largest ceiling, needs the video and a CV model).
+- [ ] specs: live gap kept by one team, dead gap, shape flip = change of possession
+- [ ] targets: change_in_ball_gap >= 40%, ball_gap_hold >= 45%, blackout_change >= 30%
+
+Order suggestion: 3 first (the largest share of real frames: ball missing 41%), then 1, then 2.
+Each direction must keep `pytest -m slow` floors green.

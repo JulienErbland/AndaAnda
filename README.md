@@ -42,7 +42,8 @@ uv run python scripts/tune_hmm.py            # staged tuning of possession/hmm.p
 uv run python -m possession.learned train    # models/lgbm.txt (+ held-out models/lomo/, ~5 min)
 uv run python scripts/tune_learned.py        # decoder penalties for the learned method
 uv run python -m possession.submit           # official data -> submissions/AndaAnda.csv, validated
-uv run --group dev pytest
+uv run --group dev pytest                   # fast suite (+ xfail specs for the next directions)
+uv run --group dev pytest -m slow           # bench acceptance gates on held-out DFL (~25 s)
 ```
 
 **Matches.**
