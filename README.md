@@ -32,6 +32,7 @@ The organisers' starter repo must sit next to this one (`../more-than-a-hack-202
 
 ```bash
 uv run python -m bench fetch                 # 7 DFL matches + Metrica Sample Game 3 (~200 MB kept)
+uv run python -m bench fetch dfl-events      # DFL official events, synced to the bench frames (1-4 f)
 uv run python -m bench run --method smooth50 # board + "where the points go" over all DFL matches
 uv run python -m bench run --method smooth50 all --worst      # + Metrica, + worst 10 s stretches
 uv run python -m bench plot --run smooth50_hackathon_s0 --match dfl-DFL-MAT-J03WOH   # PNGs

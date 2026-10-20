@@ -140,3 +140,46 @@ def test_viterbi_is_optimal_and_ignores_flicker():
     scores[70:] = [0, 2, 0]
     path = hmm.viterbi(scores, hmm.transitions(hmm.Params(switch=5)))
     assert (path[:70] == 0).all() and (path[70:] == 1).all()
+
+
+def test_dfl_events_parse_sync_and_snap(tmp_path):
+    from bench import dfl_events
+    xml = """<?xml version="1.0"?><PutDataRequest>
+<Event EventTime="2022-08-26T18:00:00.000+02:00" X-Position="52.5" Y-Position="34.0">
+  <KickOff GameSection="firstHalf"><Play Team="T-HOME" Player="P1"><Pass/></Play></KickOff></Event>
+<Event EventTime="2022-08-26T18:00:05.000+02:00" X-Position="52.5" Y-Position="34.0"
+       CalculatedFrame="10100" CalculatedTimestamp="2022-08-26T18:00:04.000+02:00">
+  <Play Team="T-HOME" Player="P1" Evaluation="successfullyCompleted"><Pass/></Play></Event>
+<Event EventTime="2022-08-26T18:00:06.000+02:00"><Delete/></Event>
+<Event EventTime="2022-08-26T18:00:09.000+02:00" X-Position="40.0" Y-Position="0.0">
+  <ThrowIn Team="T-AWAY" DecisionTimestamp="2022-08-26T18:00:07.000+02:00"><Play Team="T-AWAY"/></ThrowIn></Event>
+<Event EventTime="2022-08-26T18:50:00.000+02:00" X-Position="52.5" Y-Position="34.0">
+  <KickOff GameSection="secondHalf"><Play Team="T-AWAY"><Pass/></Play></KickOff></Event>
+</PutDataRequest>"""
+    (tmp_path / "e.xml").write_text(xml)
+    ev = dfl_events.parse(str(tmp_path / "e.xml"), "T-HOME")
+    assert [e["kind"] for e in ev] == ["KickOff", "Play", "ThrowIn", "KickOff"]  # Delete dropped
+    assert [e["team"] for e in ev] == [0, 0, 1, 1]
+    assert ev[2]["restart"] == "throw_in" and ev[0]["restart"] == "kickoff"
+
+    # 12 s of half 1 at 25 fps (+ a 2nd half): home kicks at 4 s (frame 100 = N 10100),
+    # dead from 6.5 s, away throws in at 8.4 s (row 210).
+    n1, n2 = 300, 50
+    labels = np.array([H] * 162 + [D] * 48 + [A] * 90 + [D] * n2, dtype=np.int8)
+    ball = np.zeros((n1 + n2, 3), np.float32)
+    ball[:, :2] = (0.5, 0.5)
+    ball[105:, 2] = 9.0                                     # kicked at frame 100 (0.2 s lead)
+    players = np.full((n1 + n2, 2, 3), np.nan, np.float32)
+    players[:, 0, :2] = ball[:, :2]                          # home player on the ball
+    m = Match(name="t", pitch=(105.0, 68.0), ball=ball, players=players,
+              slot_team=np.array([0, 1], np.int8),
+              halves=np.array([[1, 0, n1 - 1], [2, n1, n1 + n2 - 1]]), labels=labels)
+    ev[3]["t"] = ev[0]["t"] + 3000  # keep the second half well after the first
+    stats = dfl_events.sync(ev, m)
+    play = ev[1]
+    assert play["anchor_row"] == 100 and stats["lag_s"][0] == 1.0  # logged 1 s late
+    assert abs(play["row"] - 100) <= 1 and play["snapped"]
+    ev[1]["x"], ev[1]["y"] = 80.0, 10.0                      # logged 35 m away from the ball
+    dfl_events.sync(ev, m)
+    assert not ev[1]["snapped"]                              # never snap to the wrong place
+    assert ev[2]["row"] == 210 and ev[2]["snapped"]          # the dead -> live switch

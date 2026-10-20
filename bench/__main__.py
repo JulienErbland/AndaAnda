@@ -69,6 +69,9 @@ def cmd_fetch(args):
         dfl.fetch(args.ids or None)
     if args.what in ("metrica", "all"):
         epts.fetch_metrica()
+    if args.what in ("dfl-events", "all"):
+        from . import dfl_events
+        dfl_events.fetch(args.ids or None)
 
 
 def cmd_stats(args):
@@ -272,7 +275,8 @@ def main():
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("fetch")
-    p.add_argument("what", choices=["dfl", "metrica", "all"], nargs="?", default="all")
+    p.add_argument("what", choices=["dfl", "metrica", "dfl-events", "all"], nargs="?",
+                   default="all")
     p.add_argument("--ids", nargs="*", help="DFL match ids, e.g. DFL-MAT-J03WOH")
     p.set_defaults(func=cmd_fetch)
 

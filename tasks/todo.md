@@ -216,3 +216,23 @@ needed, re-detect the ball in the tactical video (largest ceiling, needs the vid
 
 Order suggestion: 3 first (the largest share of real frames: ball missing 41%), then 1, then 2.
 Each direction must keep `pytest -m slow` floors green.
+
+---
+
+# DFL official events (Oct 20): added
+
+`bench/dfl_events.py`, run with `python -m bench fetch dfl-events`: 9,961 events over the 7 bench
+matches, synced to bench frames.
+- Clock: frame-anchored events (CalculatedFrame) fix the map. A real kick sits exactly on every
+  anchor, so the frame numbering is right.
+- Lag: the hand-logged EventTime runs -1.2 to +2.5 s late per half; the median is subtracted.
+- Snap: on-ball events go to the kick or touch by an event-team player that best fits time and
+  position (event positions match the ball to ~1 m once y is flipped), within +-2 s, then +-6 s.
+  Set pieces go to the nearest dead -> live switch of the labels.
+- Quality:
+  - anchors at 1-3.5 frames median (raw clock: 18-44);
+  - pass team agrees with the possession label 98%;
+  - set pieces 97-100% snapped and 96-100% consistent (dead just before, taking team after);
+  - kick-offs 31 of 32.
+- Use: reference for direction 1 (restart frame, kind, team) and direction 2 (passes,
+  interceptions, tackles), and simulated Smart Tagging set pieces for the hackathon priors.
