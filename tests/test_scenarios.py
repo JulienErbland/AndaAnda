@@ -97,3 +97,33 @@ def test_hmm_finds_an_interception_on_time():
     pred = hmm.decode(m.without_labels())
     clip = scenarios.Clip("toy", 6 * S, 0, n, {"frm": H, "to": A})
     assert scenarios.check_transition_half_second(clip, m.labels, pred)
+
+
+# -- learned model guards -----------------------------------------------------------------------
+
+def test_swap_teams_swaps_labels_and_slots():
+    from possession import learned
+    m = toy([H, H, A, D], np.full((4, 2), 50.0))
+    s = learned.swap_teams(m)
+    assert s.labels.tolist() == [A, A, H, D]
+    assert (s.slot_team == 1 - m.slot_team).all()
+    assert m.labels.tolist() == [H, H, A, D]  # original untouched
+
+
+def test_learned_uses_held_out_model_for_training_matches(monkeypatch):
+    import json
+    import lightgbm
+    from possession import learned
+    with open(learned.META) as f:
+        trained_on = json.load(f)["trained_on"]
+    opened = []
+    monkeypatch.setattr(lightgbm, "Booster", lambda model_file: opened.append(model_file))
+    learned._model_for(toy([H], np.full((1, 2), 50.0)))             # unseen match
+    m = toy([H], np.full((1, 2), 50.0))
+    m.name = trained_on[0]
+    try:
+        learned._model_for(m)                                        # a training match
+    except IOError:
+        pass  # held-out models not built on this machine: refusing is also correct
+    assert opened[0] == learned.FULL_MODEL
+    assert all(p != learned.FULL_MODEL for p in opened[1:])

@@ -5,7 +5,17 @@ label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1
 
 - `docs/problem.md`: the problem, the metric's consequences and the main challenges. **Read first.**
 - `bench/`: offline test bench that replicates the hackathon conditions on public labelled matches.
-- `possession/`: the methods. `baseline.py` is the organisers' baseline (method 0).
+- `possession/`: the methods.
+  - `baseline.py`: the organisers' baseline (method 0, `smooth50`).
+  - `hmm.py`: M1, hand-built evidence and a Viterbi decoder.
+  - `learned.py`: M2, LightGBM evidence (`context.py` features) in the same decoder. This is the
+    submission default.
+
+| method | DFL held-out spellF1 | public window |
+|---|---|---|
+| smooth50 | 0.247 | 0.326 |
+| hmm (M1) | 0.352 | 0.413 |
+| learned (M2) | **0.522** | **0.622** |
 
 ## Setup
 
@@ -27,6 +37,8 @@ uv run python -m bench stats all             # data stats as degraded (for calib
 uv run python -m bench scenarios --preview   # edge-case pass rates + one MP4 replay per scenario
 uv run python scripts/scenario_page.py       # -> reports/scenarios/index.html
 uv run python scripts/tune_hmm.py            # staged tuning of possession/hmm.py
+uv run python -m possession.learned train    # models/lgbm.txt (+ held-out models/lomo/, ~5 min)
+uv run python scripts/tune_learned.py        # decoder penalties for the learned method
 uv run python -m possession.submit           # official data -> submissions/AndaAnda.csv, validated
 uv run --group dev pytest
 ```

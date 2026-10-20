@@ -6,7 +6,7 @@ Register a method in METHODS to make it runnable as `python -m bench run --metho
 
 from functools import partial
 
-from . import baseline, hmm
+from . import baseline, hmm, learned
 
 METHODS = {
     "raw": partial(baseline.predict, window=0),
@@ -14,4 +14,5 @@ METHODS = {
     "smooth50": partial(baseline.predict, window=50),
     "smooth125": partial(baseline.predict, window=125),
     "hmm": hmm.predict,
+    "learned": learned.predict,
 }

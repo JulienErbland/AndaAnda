@@ -81,3 +81,47 @@ rate on the full hackathon match plausible (~3-5 per live minute, count only).
   - short_spell 2%;
   - restarts 23%;
   - kickoff 12%.
+
+---
+
+# M2: learned evidence (LightGBM) inside the HMM
+
+Why: M1 fails whenever the ball is invisible. In 116 of 154 failed ball-gap clips, slow live play
+was called dead (speed + no ball can't separate them), and hand-overs in gaps are found 0% of the
+time. A per-frame model trained on degraded DFL can combine many weak clues; the HMM keeps
+the temporal structure.
+
+- [x] 1. `possession/context.py`: rich per-frame features, ball-free where possible, all offline
+      (past and future context allowed): multi-scale player speeds and deceleration, per-team
+      centroid/forward velocity/spread in each team's attacking direction (from kick-off
+      positions), ball visible/speed/out, time since/until ball seen, last/next seen ball position
+      and speed, last/next controlling team and time since/until, team-evidence rolling means
+- [x] 2. `possession/learned.py`: LightGBM multiclass H/A/D, trained on degraded DFL with home/away
+      swap augmentation, leave-one-match-out for evaluation; deterministic (fixed seed, threads)
+- [x] 3. Emissions = lambda * log p in the M1 Viterbi; tune lambda and the penalties with the staged
+      logic (switch checked against the hackathon possession rate, not tuned on DFL)
+- [x] 4. Compare with M1: board, diagnostics, edge-case scenarios (target: ball_gap_hold,
+      change_in_ball_gap, restarts), public window, full-match rate
+- [x] 5. Ship: model trained on all 7 DFL matches saved to `models/` (public data, so OK to commit);
+      `python -m possession.train` regenerates it; submit uses it
+- [x] 6. Tests, docs, review
+
+## M2 review (Oct 20)
+
+| | smooth50 | M1 hmm | M2 learned |
+|---|---|---|---|
+| DFL held-out spellF1 (7 matches) | 0.247 | 0.352 | **0.522** |
+| DFL macroF1 | 0.585 | 0.80 | **0.883** |
+| public window spellF1 (17 spells, noisy) | 0.326 | 0.413 | **0.622** |
+| full hackathon match, possessions per live min | - | 4.35 | **4.16** (public window: 4.25) |
+
+- Decoder: switch 10, stop/restart 40. DFL is flat for switch 3-10; 10 is the closest to the real
+  possession rate. With confident evidence, the DFL and real-match criteria now agree.
+- The submission is byte-identical across runs: 227 possessions, mean 14.4 s.
+- Scenarios improved in 11 of 13. Restarts 23% -> 55%, change in ball gap 0% -> 25%, dead ball
+  with the ball visible 77% -> 93%.
+- Known limit, next milestone: ball_gap_hold stays at 23%. P(dead) rises with gap length (correct
+  on average), and per-frame log-probs summed over hundreds of correlated frames outweigh the
+  stop+restart penalty. Fix: a duration-aware (semi-Markov) decoder, or tempering correlated
+  evidence.
+- Still to do: Smart Tagging priors (with simulated DFL tags), ball re-detection from video.

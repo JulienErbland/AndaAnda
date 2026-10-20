@@ -92,7 +92,11 @@ def viterbi(scores, trans):
 
 def decode(match, p=Params(), feats=None):
     feats = feats if feats is not None else features.compute(match)
-    scores = evidence(feats, p)
+    return decode_scores(match, evidence(feats, p), p)
+
+
+def decode_scores(match, scores, p):
+    """Viterbi over each graded half for (T, 3) scores; X outside the halves."""
     trans = transitions(p)
     out = np.full(match.n_frames, X, dtype=np.int8)
     state_codes = np.asarray(STATES, dtype=np.int8)

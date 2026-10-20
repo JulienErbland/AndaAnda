@@ -1,6 +1,6 @@
 """One command from the data bundle to a validated submission file.
 
-    uv run python -m possession.submit [--method hmm] [--team AndaAnda]
+    uv run python -m possession.submit [--method learned] [--team AndaAnda]
 
 Rebuilds the match from the raw bundle every time (official_data/ or MTAH_DATA_DIR), so the
 output depends on the bundle and the code only -- what the organisers will re-run. Deterministic:
@@ -22,7 +22,7 @@ from bench.match import LETTERS
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--method", default="hmm")
+    ap.add_argument("--method", default="learned")
     ap.add_argument("--team", default="AndaAnda")
     ap.add_argument("--out", default=os.path.join(ROOT, "submissions"))
     args = ap.parse_args()
