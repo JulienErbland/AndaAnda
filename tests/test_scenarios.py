@@ -127,3 +127,67 @@ def test_learned_uses_held_out_model_for_training_matches(monkeypatch):
         pass  # held-out models not built on this machine: refusing is also correct
     assert opened[0] == learned.FULL_MODEL
     assert all(p != learned.FULL_MODEL for p in opened[1:])
+
+
+# -- semi-Markov decoder -------------------------------------------------------------------------
+
+def _brute_force_segments(scores, p):
+    import itertools
+    from possession import hsmm
+    trans = hsmm._transitions(p)
+    best, arg = -np.inf, None
+    for seq in itertools.product(range(3), repeat=len(scores)):
+        total, start = 0.0, 0
+        for t in range(1, len(seq) + 1):
+            if t == len(seq) or seq[t] != seq[start]:
+                s, d = seq[start], t - start
+                med, sig = ((p.dead_median_s, p.dead_sigma) if s == hsmm.DEAD
+                            else (p.alive_median_s, p.alive_sigma))
+                total += scores[start:t, s].sum() + hsmm._log_duration(d, p, med, sig)[-1]
+                if t < len(seq):
+                    total += trans[s, seq[t]]
+                start = t
+        if total > best:
+            best, arg = total, seq
+    return arg
+
+
+def test_segment_viterbi_matches_brute_force():
+    from possession import hsmm
+    rng = np.random.default_rng(1)
+    p = hsmm.Params(switch=1.0, stop=0.5, restart=1.5, w_dur=1.0, block=1,
+                    alive_median_s=0.12, dead_median_s=0.2, alive_max_s=1, dead_max_s=1)
+    for _ in range(15):
+        scores = rng.normal(0, 1.5, (6, 3))
+        segs = hsmm.segment_viterbi(scores, p)
+        path = tuple(s for a, b, s in segs for _ in range(b - a))
+        assert path == _brute_force_segments(scores, p)
+
+
+def test_gap_weighting_keeps_possession_through_a_weak_dead_lean():
+    from possession import hsmm
+    n = 40 * S
+    scores = np.zeros((n, 3))
+    scores[:, 0] = np.log(0.9)
+    scores[:, 1] = np.log(0.05)
+    scores[:, 2] = np.log(0.05)
+    gap = slice(10 * S, 30 * S)                 # 20 s ball gap, slight lean to dead
+    scores[gap] = np.log([0.42, 0.03, 0.55])
+    ball = np.tile([45.0, 30.0], (n, 1))
+    ball[gap] = np.nan
+    m = toy([H] * n, ball)
+    plain = hsmm.decode_scores(m, scores, hsmm.Params())
+    weighted = hsmm.decode_scores(m, scores, hsmm.Params(kappa=50))
+    assert np.mean(plain[gap] == D) > 0.5       # the failure mode
+    assert np.mean(weighted[gap] == H) == 1.0   # fixed
+
+
+def test_refinement_puts_the_boundary_on_the_exact_frame():
+    from possession import hsmm
+    n = 400
+    scores = np.full((n, 3), -5.0)
+    scores[:203, 0] = 0.0                       # H until frame 203, not a block multiple
+    scores[203:, 1] = 0.0
+    m = toy([H] * n, np.full((n, 2), 50.0))
+    pred = hsmm.decode_scores(m, scores, hsmm.Params(switch=1.0))
+    assert (pred[:203] == H).all() and (pred[203:] == A).all()

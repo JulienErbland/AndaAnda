@@ -4,6 +4,7 @@ Our solution to [More than a Hack 2027, Phase 1](../more-than-a-hack-2027/CHALLE
 label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1.
 
 - `docs/problem.md`: the problem, the metric's consequences and the main challenges. **Read first.**
+- `docs/pipeline.html`: the whole pipeline explained in depth (theory, diagrams, interactive demos). Open it in a browser.
 - `bench/`: offline test bench that replicates the hackathon conditions on public labelled matches.
 - `possession/`: the methods.
   - `baseline.py`: the organisers' baseline (method 0, `smooth50`).
@@ -16,6 +17,7 @@ label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1
 | smooth50 | 0.247 | 0.326 |
 | hmm (M1) | 0.352 | 0.413 |
 | learned (M2) | **0.522** | **0.622** |
+| hsmm (M3, not adopted) | 0.463–0.517 | 0.622 |
 
 ## Setup
 

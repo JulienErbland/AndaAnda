@@ -125,3 +125,40 @@ the temporal structure.
   stop+restart penalty. Fix: a duration-aware (semi-Markov) decoder, or tempering correlated
   evidence.
 - Still to do: Smart Tagging priors (with simulated DFL tags), ball re-detection from video.
+
+---
+
+# M3: semi-Markov (explicit-duration) decoder
+
+Why: ball_gap_hold stays at 23%. A slight per-frame lean towards "dead", summed over hundreds of
+correlated frames in a long ball gap, outweighs the stop+restart penalty and splits a live
+possession. Two remedies, measured separately:
+  (a) duration priors per state (how long possessions and stoppages really last), via a
+      semi-Markov decoder that scores whole segments;
+  (b) correlation correction: a ball gap of G frames contributes ~kappa frames of evidence
+      (per-frame weight min(1, kappa/G)), since its frames repeat the same information.
+
+- [x] 1. Duration stats: GT segment lengths per state on DFL and the public window -> lognormal priors
+- [x] 2. `possession/hsmm.py`: segment Viterbi at 5-frame (0.2 s) blocks with prefix-sum segment
+      evidence, lognormal duration log-prob, same transition penalties; boundary refinement to the
+      exact frame (+-5 f) from per-frame evidence; gap weighting option
+- [x] 3. Test: exact against brute-force segmentation on short sequences; refinement on a toy
+- [x] 4. Ablation on held-out DFL probs (A: M2, B: +gap weights, C: +durations, D: both):
+      spellF1, macroF1, public window, full-match rate, key scenarios
+- [x] 5. Adopt the winner only if it beats M2 beyond noise (or fixes ball_gap_hold without
+      losing elsewhere); docs, review, commit
+
+## M3 review (Oct 20): negative result, M2 kept
+
+| variant | DFL spellF1 | ball_gap_hold | change_in_ball_gap |
+|---|---|---|---|
+| A: M2 Viterbi | **0.522** | 23% | **25%** |
+| B: gap weighting k=25-200 | 0.481-0.507 | 27-30% | 4-14% |
+| C: duration priors | 0.502-0.517 | 23% | 21-24% |
+| D: both | 0.463-0.492 | 28-30% | 3-9% |
+
+- Gap weighting assumed that gap frames repeat one piece of information. Wrong: last/next control
+  and team movement locate hand-overs inside gaps.
+- Duration priors are redundant with the learned probabilities plus the switch penalty.
+- `possession/hsmm.py` is kept (exact vs brute force) but not adopted. The next lever for ball gaps
+  is better gap features (what separates a live gap from a stoppage), not the decoder.

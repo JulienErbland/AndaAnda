@@ -1,0 +1,926 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AndaAnda Pipeline</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap">
+<style>
+:root {
+  /* Layout: a technical match report. Sticky contents rail on wide screens, one reading column
+     (~68ch) with full-width figures; each tool gets "why" before "how". */
+  --bg: #f3f5f1; --surface: #ffffff; --sunk: #e8ede6; --ink: #18211b; --muted: #5a685e;
+  --line: #d2dbd1; --pitch: #2f6b45; --pitch-soft: #d9e8dc;
+  --home: #1f5fbf; --away: #d1495b; --dead: #9aa0a6; --warn: #a15c00; --good: #2e7d32;
+  --display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111713; --surface: #18201b; --sunk: #0d120f; --ink: #e3eae4; --muted: #9aaa9f;
+  --line: #2b3830; --pitch: #72c08d; --pitch-soft: #1e3326;
+  --home: #74a2f0; --away: #ee7d8d; --dead: #8c939b; --warn: #e0a24a; --good: #82d08c;
+  color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111713; --surface: #18201b; --sunk: #0d120f; --ink: #e3eae4; --muted: #9aaa9f;
+  --line: #2b3830; --pitch: #72c08d; --pitch-soft: #1e3326;
+  --home: #74a2f0; --away: #ee7d8d; --dead: #8c939b; --warn: #e0a24a; --good: #82d08c;
+  color-scheme: dark }
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.62 var(--body);
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 40px 96px; }
+.layout { max-width: 1180px; margin: 0 auto; display: grid; grid-template-columns: 220px minmax(0, 1fr);
+  gap: 56px; }
+nav.toc { position: sticky; top: 24px; align-self: start; font-size: 0.86rem; display: grid; gap: 4px; }
+nav.toc a { color: var(--muted); text-decoration: none; padding: 3px 0 3px 12px;
+  border-left: 2px solid var(--line); }
+nav.toc a:hover, nav.toc a:focus-visible { color: var(--ink); border-left-color: var(--pitch); outline: none; }
+nav.toc .label { font: 600 0.7rem var(--mono); letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--pitch); margin-bottom: 6px; }
+main { min-width: 0; display: grid; gap: 72px; }
+section { display: grid; gap: 18px; scroll-margin-top: 16px; }
+h1, h2, h3 { font-family: var(--display); margin: 0; text-wrap: balance; letter-spacing: 0.005em; }
+h1 { font-size: clamp(2.4rem, 5vw, 3.6rem); line-height: 1; font-weight: 700; }
+h2 { font-size: 2.1rem; font-weight: 600; line-height: 1.1; }
+h3 { font-size: 1.35rem; font-weight: 600; margin-top: 10px; }
+p, li { max-width: 68ch; }
+p { margin: 0; }
+ul, ol { margin: 0; padding-left: 1.2em; display: grid; gap: 6px; }
+.eyebrow { font: 600 0.74rem var(--mono); letter-spacing: 0.14em; text-transform: uppercase; color: var(--pitch); }
+.kicker { color: var(--muted); font-size: 1.08rem; max-width: 62ch; }
+.muted { color: var(--muted); }
+code, .mono { font-family: var(--mono); font-size: 0.86em; }
+code { background: var(--sunk); padding: 1px 5px; border-radius: 3px; }
+strong { font-weight: 600; }
+.why { border-left: 3px solid var(--pitch); padding: 10px 16px; background: var(--pitch-soft);
+  border-radius: 0 4px 4px 0; max-width: 72ch; }
+.why b { font: 600 0.72rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--pitch);
+  display: block; margin-bottom: 2px; }
+.callout { border: 1px solid var(--line); background: var(--surface); padding: 14px 18px; border-radius: 6px; max-width: 72ch; }
+figure { margin: 0; display: grid; gap: 8px; }
+figcaption { font-size: 0.86rem; color: var(--muted); max-width: 72ch; }
+.figure-box { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 16px;
+  overflow-x: auto; }
+svg { display: block; max-width: 100%; height: auto; }
+svg text { font-family: var(--body); fill: var(--ink); }
+svg .t-muted { fill: var(--muted); }
+svg .t-mono { font-family: var(--mono); }
+svg .box { fill: var(--surface); stroke: var(--line); stroke-width: 1.2; }
+svg .box-accent { fill: var(--pitch-soft); stroke: var(--pitch); stroke-width: 1.2; }
+svg .box-sunk { fill: var(--sunk); stroke: var(--line); }
+svg .edge { stroke: var(--muted); stroke-width: 1.4; fill: none; }
+svg .edge-accent { stroke: var(--pitch); stroke-width: 1.6; fill: none; }
+svg .arrowhead { fill: var(--muted); }
+svg .home { fill: var(--home); } svg .away { fill: var(--away); } svg .dead { fill: var(--dead); }
+svg .grid { stroke: var(--line); stroke-width: 1; }
+.table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 6px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 0.9rem; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 0.7rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+tbody tr:last-child td { border-bottom: 0; }
+td.num, th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+tr.best td { background: var(--pitch-soft); }
+math { font-size: 1.06em; }
+.formula { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 18px;
+  overflow-x: auto; display: grid; gap: 8px; }
+.formula .note { font-size: 0.85rem; color: var(--muted); }
+.demo { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 18px;
+  display: grid; gap: 14px; }
+.demo-head { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: baseline; justify-content: space-between; }
+.demo-head h3 { margin: 0; }
+.tag { font: 600 0.68rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--surface);
+  background: var(--pitch); padding: 2px 8px; border-radius: 3px; }
+.controls { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; font-size: 0.9rem; }
+.controls label { display: inline-flex; gap: 8px; align-items: center; }
+.controls input[type=range] { width: 170px; accent-color: var(--pitch); }
+.controls input[type=checkbox] { accent-color: var(--pitch); width: 16px; height: 16px; }
+.controls output { font-family: var(--mono); font-variant-numeric: tabular-nums; min-width: 4.5em; }
+canvas { width: 100%; display: block; border-radius: 3px; }
+.readout { display: flex; flex-wrap: wrap; gap: 10px; font: 0.82rem var(--mono); font-variant-numeric: tabular-nums; }
+.pill { border: 1px solid var(--line); padding: 3px 10px; border-radius: 999px; }
+.pill b { font-weight: 600; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 0.82rem; color: var(--muted); }
+.legend i { display: inline-block; width: 13px; height: 9px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
+.cols { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 14px 16px;
+  display: grid; gap: 6px; align-content: start; }
+.card h4 { margin: 0; font: 600 1.08rem var(--display); }
+.card p { font-size: 0.92rem; }
+.status { font: 600 0.68rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
+.status.done { color: var(--good); } .status.wip { color: var(--warn); }
+hr { border: 0; border-top: 1px solid var(--line); margin: 0; }
+a { color: var(--pitch); }
+a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-offset: 2px; }
+@media (max-width: 900px) {
+  .layout { grid-template-columns: 1fr; gap: 32px; }
+  nav.toc { position: static; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); }
+}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav class="toc" aria-label="Contents">
+  <span class="label">Contents</span>
+  <a href="#overview">1 · The pipeline at a glance</a>
+  <a href="#problem">2 · What we predict</a>
+  <a href="#metric">3 · How it is scored</a>
+  <a href="#data">4 · The data</a>
+  <a href="#bench">5 · The test bench</a>
+  <a href="#degrader">6 · The degrader</a>
+  <a href="#diagnostics">7 · Diagnostics &amp; scenarios</a>
+  <a href="#baseline">8 · Baseline: smooth50</a>
+  <a href="#hmm">9 · M1: evidence + Viterbi</a>
+  <a href="#learned">10 · M2: learned evidence</a>
+  <a href="#hsmm">11 · M3: semi-Markov</a>
+  <a href="#validation">12 · Validation discipline</a>
+  <a href="#submission">13 · Submission &amp; privacy</a>
+  <a href="#map">14 · Code map</a>
+</nav>
+
+<main>
+<header style="display:grid;gap:14px">
+  <span class="eyebrow">AndaAnda · More than a Hack 2027 · Phase 1</span>
+  <h1>How the possession pipeline works</h1>
+  <p class="kicker">From automatic tracking of FC Barcelona vs Athletic Club to one label per frame:
+  who has the ball, or whether it is dead. This page explains every stage, the theory behind each
+  tool, why we chose it, and what it measured on held-out matches.</p>
+  <div class="legend" aria-label="Label colours">
+    <span><i style="background:var(--home)"></i>H: home (Barcelona) in possession</span>
+    <span><i style="background:var(--away)"></i>A: away (Athletic) in possession</span>
+    <span><i style="background:var(--dead)"></i>D: dead ball</span>
+  </div>
+</header>
+
+<!-- 1 ---------------------------------------------------------------------------------- -->
+<section id="overview">
+  <span class="eyebrow">1 · Overview</span>
+  <h2>The pipeline at a glance</h2>
+  <p>Two loops share the same code. The <strong>bench loop</strong> builds and judges methods on
+  public matches whose answer we know, after making their tracking look as bad as the hackathon's.
+  The <strong>submission loop</strong> runs the chosen method once on the real match.</p>
+  <figure>
+    <div class="figure-box">
+    <svg viewBox="0 0 920 360" role="img" aria-label="Pipeline diagram: sources, common format, degrader, methods, scorer and diagnostics, plus the submission path">
+      <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" class="arrowhead"/></marker></defs>
+      <text x="10" y="22" class="t-muted t-mono" font-size="11">BENCH LOOP (public, labelled)</text>
+      <rect x="10" y="36" width="150" height="62" rx="5" class="box"/>
+      <text x="22" y="60" font-size="14" font-weight="600">DFL · 7 matches</text>
+      <text x="22" y="80" font-size="11.5" class="t-muted">TRACAB 25 fps, labels</text>
+      <rect x="10" y="110" width="150" height="62" rx="5" class="box"/>
+      <text x="22" y="134" font-size="14" font-weight="600">Metrica sample</text>
+      <text x="22" y="154" font-size="11.5" class="t-muted">same file format</text>
+      <rect x="200" y="70" width="150" height="70" rx="5" class="box-accent"/>
+      <text x="212" y="96" font-size="14" font-weight="600">Common format</text>
+      <text x="212" y="116" font-size="11.5" class="t-muted">bench/match.py</text>
+      <rect x="390" y="70" width="140" height="70" rx="5" class="box-accent"/>
+      <text x="402" y="96" font-size="14" font-weight="600">Degrader</text>
+      <text x="402" y="116" font-size="11.5" class="t-muted">calibrated noise</text>
+      <rect x="570" y="58" width="160" height="94" rx="5" class="box"/>
+      <text x="582" y="82" font-size="14" font-weight="600">Method</text>
+      <text x="582" y="102" font-size="11.5" class="t-muted">sees tracking only</text>
+      <text x="582" y="122" font-size="11.5" class="t-muted">smooth50 · hmm ·</text>
+      <text x="582" y="138" font-size="11.5" class="t-muted">learned · hsmm</text>
+      <rect x="770" y="36" width="140" height="56" rx="5" class="box"/>
+      <text x="782" y="60" font-size="14" font-weight="600">Official scorer</text>
+      <text x="782" y="78" font-size="11.5" class="t-muted">imported as-is</text>
+      <rect x="770" y="110" width="140" height="70" rx="5" class="box"/>
+      <text x="782" y="134" font-size="14" font-weight="600">Diagnostics</text>
+      <text x="782" y="152" font-size="11.5" class="t-muted">13 scenarios,</text>
+      <text x="782" y="168" font-size="11.5" class="t-muted">plots, replays</text>
+      <path d="M160,67 C180,67 180,100 198,100" class="edge" marker-end="url(#ah)"/>
+      <path d="M160,141 C180,141 180,112 198,112" class="edge" marker-end="url(#ah)"/>
+      <path d="M350,105 L388,105" class="edge" marker-end="url(#ah)"/>
+      <path d="M530,105 L568,105" class="edge" marker-end="url(#ah)"/>
+      <path d="M730,90 C750,90 750,64 768,64" class="edge" marker-end="url(#ah)"/>
+      <path d="M730,120 C750,120 750,145 768,145" class="edge" marker-end="url(#ah)"/>
+      <path d="M460,70 C460,30 680,30 760,40" class="edge" stroke-dasharray="4 4"/>
+      <text x="520" y="26" font-size="11" class="t-muted">labels go straight to the scorer, never to the method</text>
+      <line x1="10" y1="214" x2="910" y2="214" class="grid"/>
+      <text x="10" y="242" class="t-muted t-mono" font-size="11">SUBMISSION LOOP (gated hackathon data, runs locally)</text>
+      <rect x="10" y="256" width="150" height="70" rx="5" class="box-sunk"/>
+      <text x="22" y="282" font-size="14" font-weight="600">official_data/</text>
+      <text x="22" y="302" font-size="11.5" class="t-muted">ATD · tags · H-graphy</text>
+      <rect x="200" y="256" width="150" height="70" rx="5" class="box-accent"/>
+      <text x="212" y="282" font-size="14" font-weight="600">Common format</text>
+      <text x="212" y="302" font-size="11.5" class="t-muted">epts.hackathon()</text>
+      <rect x="390" y="256" width="140" height="70" rx="5" class="box"/>
+      <text x="402" y="282" font-size="14" font-weight="600">Same method</text>
+      <text x="402" y="302" font-size="11.5" class="t-muted">no degrader</text>
+      <rect x="570" y="256" width="160" height="70" rx="5" class="box"/>
+      <text x="582" y="282" font-size="14" font-weight="600">AndaAnda.csv</text>
+      <text x="582" y="302" font-size="11.5" class="t-muted">199,319 rows</text>
+      <rect x="770" y="256" width="140" height="70" rx="5" class="box"/>
+      <text x="782" y="282" font-size="14" font-weight="600">Validator</text>
+      <text x="782" y="302" font-size="11.5" class="t-muted">organisers' script</text>
+      <path d="M160,291 L198,291" class="edge" marker-end="url(#ah)"/>
+      <path d="M350,291 L388,291" class="edge" marker-end="url(#ah)"/>
+      <path d="M530,291 L568,291" class="edge" marker-end="url(#ah)"/>
+      <path d="M730,291 L768,291" class="edge" marker-end="url(#ah)"/>
+      <path d="M650,152 L650,254" class="edge-accent" stroke-dasharray="5 4" marker-end="url(#ah)"/>
+      <text x="658" y="208" font-size="11" fill="var(--pitch)">best method, frozen</text>
+    </svg>
+    </div>
+    <figcaption>Figure 1. Everything left of "Method" turns any source into one shape, so a method
+    written once runs on DFL, Metrica and the real match without changes.</figcaption>
+  </figure>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Method</th><th>Idea</th><th class="num">DFL held-out spellF1</th><th class="num">Public window</th></tr></thead>
+    <tbody>
+      <tr><td><code>smooth50</code></td><td>Nearest player to the ball, then a 4 s majority vote (organisers' baseline)</td><td class="num">0.247</td><td class="num">0.326</td></tr>
+      <tr><td><code>hmm</code> (M1)</td><td>Hand-built evidence, Viterbi decoding with change penalties</td><td class="num">0.352</td><td class="num">0.413</td></tr>
+      <tr class="best"><td><code>learned</code> (M2)</td><td>LightGBM probabilities from 42 context features, same decoder</td><td class="num">0.522</td><td class="num">0.622</td></tr>
+      <tr><td><code>hsmm</code> (M3)</td><td>Semi-Markov decoder: duration priors, gap-aware evidence</td><td class="num">0.463–0.517 (not adopted)</td><td class="num">0.622</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 2 ---------------------------------------------------------------------------------- -->
+<section id="problem">
+  <span class="eyebrow">2 · The task</span>
+  <h2>What we predict</h2>
+  <p>The tactical video has <strong>199,319 frames</strong> at 25 per second. For each one we write
+  <code>H</code>, <code>A</code>, <code>D</code> or <code>X</code> (abstain). Only the two halves are
+  graded: frames 11,185–90,651 and 110,808–190,197, so 158,857 frames.</p>
+  <p>The ground truth is <strong>mechanical</strong>: Metrica's corrected tracking flags the ball dead
+  or names the team that owns it, frame by frame, with no smoothing. A <strong>possession</strong>
+  is a maximal run of <code>H</code> or of <code>A</code>. A dead-ball stretch ends one, so
+  <code>H H D D H H</code> counts as two possessions.</p>
+  <figure>
+    <div class="figure-box"><canvas id="publicGt" height="96" aria-label="Public ground truth timeline"></canvas></div>
+    <figcaption>Figure 2. The public ground truth: the first 5 minutes of play, 17 possessions and 4
+    stoppages. Note the 0.8 s Barcelona possession between two long Athletic ones (around 3:10).
+    It is real, and a method that smooths it away loses three possessions at once (see §3).</figcaption>
+  </figure>
+</section>
+
+<!-- 3 ---------------------------------------------------------------------------------- -->
+<section id="metric">
+  <span class="eyebrow">3 · The metric</span>
+  <h2>How it is scored: spellF1</h2>
+  <p>The board ranks on <strong>spellF1</strong>, which treats each possession as one object rather
+  than hundreds of frames. It answers a coach's question: did you find the possessions that
+  happened, with roughly the right start and end?</p>
+  <ol>
+    <li>Extract the possessions (maximal <code>H</code>/<code>A</code> runs) from the truth and from the prediction.</li>
+    <li>For every same-team pair that overlaps, compute the temporal IoU.</li>
+    <li>Match greedily, best IoU first, <strong>one-to-one</strong>: each true possession can be credited to at most one predicted one.</li>
+    <li>At each threshold τ, a pair counts as a hit if IoU ≥ τ. Compute F1, then average over τ = 0.3, 0.4, 0.5, 0.6, 0.7.</li>
+  </ol>
+  <div class="formula">
+    <math display="block"><mrow><mi>IoU</mi><mo>(</mo><mi>p</mi><mo>,</mo><mi>g</mi><mo>)</mo><mo>=</mo><mfrac><mrow><mo>|</mo><mi>p</mi><mo>∩</mo><mi>g</mi><mo>|</mo></mrow><mrow><mo>|</mo><mi>p</mi><mo>∪</mo><mi>g</mi><mo>|</mo></mrow></mfrac><mspace width="2em"/><msub><mi>F1</mi><mi>τ</mi></msub><mo>=</mo><mfrac><mrow><mn>2</mn><mi>TP</mi></mrow><mrow><mn>2</mn><mi>TP</mi><mo>+</mo><mi>FP</mi><mo>+</mo><mi>FN</mi></mrow></mfrac><mspace width="2em"/><mi>spellF1</mi><mo>=</mo><mfrac><mn>1</mn><mn>5</mn></mfrac><munder><mo>∑</mo><mrow><mi>τ</mi><mo>∈</mo><mo>{</mo><mn>.3</mn><mo>,</mo><mo>…</mo><mo>,</mo><mn>.7</mn><mo>}</mo></mrow></munder><msub><mi>F1</mi><mi>τ</mi></msub></mrow></math>
+    <span class="note">An abstention <code>X</code> is first replaced by the previous label in the same half, so
+    it means "repeat my last answer": free inside a possession, costly across a hand-over.</span>
+  </div>
+  <p>Three consequences shaped every design decision that follows:</p>
+  <div class="cols">
+    <div class="card"><h4>Merges cost more than splits</h4><p>Swallowing a 0.8 s possession between two
+    long ones turns three true possessions into one predicted one. That one can only match one of
+    them, and only at the lower thresholds. A split costs about 1.4 possessions.</p></div>
+    <div class="card"><h4>Flicker is fatal</h4><p>Every spurious blip is a false positive and also cuts
+    a true possession in two. The raw nearest-player rule invents several times more possessions
+    than a match contains, and scores 0.05.</p></div>
+    <div class="card"><h4>Timing matters, up to a point</h4><p>One frame late is free; 8 frames late
+    gives 0.89; one second late gives 0.65. Short possessions are the most fragile: a 20-frame
+    spell shifted by 8 frames drops to IoU 0.43.</p></div>
+  </div>
+
+  <div class="demo" id="demo-metric">
+    <div class="demo-head"><h3>Try the metric on the real public window</h3><span class="tag">Interactive</span></div>
+    <p class="muted" style="font-size:0.92rem">The top strip is the true public ground truth. The
+    bottom strip is a prediction made by editing it. Matched possessions (IoU ≥ 0.5) get a dark tick.
+    The scorer logic is the official one, re-implemented in this page.</p>
+    <div class="controls">
+      <label for="m-shift">Shift every change by <input id="m-shift" type="range" min="-50" max="50" value="0"><output id="m-shift-o">0 f</output></label>
+      <label for="m-merge"><input id="m-merge" type="checkbox"> Merge the 0.8 s Barcelona possession</label>
+      <label for="m-split"><input id="m-split" type="checkbox"> Split the 42 s possession in two</label>
+      <label for="m-flicker"><input id="m-flicker" type="checkbox"> Add 6 flickers of 0.3 s</label>
+    </div>
+    <canvas id="metricCanvas" height="132" aria-label="Truth and edited prediction timelines"></canvas>
+    <div class="readout" id="metricReadout"></div>
+  </div>
+</section>
+
+<!-- 4 ---------------------------------------------------------------------------------- -->
+<section id="data">
+  <span class="eyebrow">4 · Inputs</span>
+  <h2>The data</h2>
+  <h3>The hackathon match (gated, never shown to any cloud LLM)</h3>
+  <ul>
+    <li><strong>Automatic tracking (ATD)</strong>, FIFA/EPTS format: per frame, 46 anonymous "slots" with
+    a team and <code>x, y, speed</code> in pitch-normalised 0–1 coordinates, plus the ball. Slots are
+    tracklets, not people: they appear, vanish and swap.</li>
+    <li><strong>Smart Tagging</strong>: 638 automatic phase intervals (build-up, set pieces). Useful hints, not labels.</li>
+    <li><strong>Homography</strong>: a 3×3 matrix per frame mapping the pitch to video pixels.</li>
+  </ul>
+  <p>What the real tracking looks like, measured on aggregates only (<code>bench stats hackathon</code>):</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Property</th><th class="num">Value</th><th>What it means for us</th></tr></thead>
+    <tbody>
+      <tr><td>Ball missing (graded frames)</td><td class="num">40.7%</td><td>The main difficulty.</td></tr>
+      <tr><td>Ball gaps: count, median, p99</td><td class="num">150 · 10.7 s · 105 s</td><td>Not flicker: the ball vanishes for 10–30 s at a time.</td></tr>
+      <tr><td>Ball missing when ≤ 18 players tracked</td><td class="num">85%</td><td>Tracker "blackouts" lose ball and players together.</td></tr>
+      <tr><td>Players tracked per frame</td><td class="num">mean 20.5 · p5 14</td><td>Team-level features only; never trust one slot.</td></tr>
+      <tr><td>Tracklets</td><td class="num">11.5 / min · median 35 s</td><td>Slot identity breaks every few minutes.</td></tr>
+    </tbody>
+  </table></div>
+  <h3>Public matches with known answers</h3>
+  <div class="cols">
+    <div class="card"><h4>DFL / IDSSE (main benchmark)</h4><p>7 Bundesliga and 2. Bundesliga matches
+    (Bassek et al., <em>Scientific Data</em> 2025, CC-BY 4.0). Every ball frame carries
+    <code>BallStatus</code> and <code>BallPossession</code>, so the labels are built mechanically from
+    tracking, like the hackathon's.</p></div>
+    <div class="card"><h4>Metrica Sample Game 3</h4><p>Same provider and the hackathon's exact file
+    format: it tests the reader. Labels come from events, so they are approximate. Its ball is
+    missing on 96% of dead frames, so it must always be degraded or it leaks the answer.</p></div>
+  </div>
+  <div class="why"><b>Known gap between the two definitions</b>DFL's labels change possession about
+  twice as often as the hackathon's: 8.4 against 4.3 possessions per minute of live ball. We
+  never tune the decoder's switching rate on DFL. We tune evidence there and check the predicted
+  possession rate on the real match.</div>
+</section>
+
+<!-- 5 ---------------------------------------------------------------------------------- -->
+<section id="bench">
+  <span class="eyebrow">5 · Infrastructure</span>
+  <h2>The test bench</h2>
+  <p>The public 5-minute window has 17 possessions; one miss moves spellF1 by about 6 points, and
+  the organisers showed it picks the wrong smoothing window even for the baseline. A method needs
+  many labelled full matches to be judged. The bench supplies them, in conditions that look like
+  the hackathon's.</p>
+  <div class="cols">
+    <div class="card"><h4>One common format</h4><p><code>bench/match.py</code>: positions in 0–1, 25 fps,
+    anonymous slots with a team, <code>NaN</code> for missing. Readers for DFL (streaming XML, 349 MB →
+    26 MB), EPTS (hackathon and Metrica) all produce it.</p></div>
+    <div class="card"><h4>Labels hidden from methods</h4><p>A method receives
+    <code>match.without_labels()</code>. Labels go only to the scorer, so a method cannot peek.</p></div>
+    <div class="card"><h4>The official scorer, unchanged</h4><p><code>possession_metrics.py</code> is
+    imported from the organisers' repo, so every bench number means exactly what the board will mean.</p></div>
+    <div class="card"><h4>Checked against the board</h4><p>On the real public window the bench reproduces
+    the four published baseline scores to the 4th decimal (0.0378 / 0.2868 / 0.3256 / 0.4242).</p></div>
+  </div>
+</section>
+
+<!-- 6 ---------------------------------------------------------------------------------- -->
+<section id="degrader">
+  <span class="eyebrow">6 · Simulation</span>
+  <h2>The degrader: making clean tracking look automatic</h2>
+  <p>DFL's tracking is corrected and complete: the ball is always there, players never vanish.
+  Scoring on that would flatter every method. <code>bench/degrade.py</code> damages it so its
+  statistics match the hackathon's, while leaving the labels untouched.</p>
+  <h3>Ball gaps as a point process</h3>
+  <p>Each frame can start a gap with a probability that depends on the situation. Gap length is
+  drawn from a mixture: 11% short flickers, 89% lognormal (median 9.5 s, σ 0.75). Overlapping gaps
+  merge (their union is what is missing).</p>
+  <div class="formula">
+    <math display="block"><mrow><mi>P</mi><mo>(</mo><mtext>gap starts at </mtext><mi>t</mi><mo>)</mo><mo>=</mo><msub><mi>h</mi><mrow><mtext>state</mtext><mo>(</mo><mi>t</mi><mo>)</mo></mrow></msub><mo>·</mo><mo>(</mo><mn>1</mn><mo>+</mo><mi>a</mi><mo>·</mo><msub><mtext>crowd</mtext><mi>t</mi></msub><mo>)</mo><mo>·</mo><mo>(</mo><mn>1</mn><mo>+</mo><mi>b</mi><mo>·</mo><msub><mn>𝟙</mn><mrow><msub><mi>v</mi><mi>ball</mi></msub><mo>&gt;</mo><mn>12</mn></mrow></msub><mo>)</mo></mrow></math>
+    <span class="note">The two base rates <i>h</i><sub>alive</sub> and <i>h</i><sub>dead</sub> are found by
+    bisection so that the ball is missing on 19% of live frames and 61% of dead ones. The real split
+    was estimated from mean player speed: the hackathon match and DFL have near-identical speed
+    distributions, and walking pace is mostly dead ball in both.</span>
+  </div>
+  <div class="demo" id="demo-gaps">
+    <div class="demo-head"><h3>See the gap model</h3><span class="tag">Interactive</span></div>
+    <p class="muted" style="font-size:0.92rem">Ten minutes of play (grey = dead stretches). Black marks
+    are frames where the simulated tracker loses the ball. Compare the old model (short geometric
+    gaps) with the calibrated one, at the same overall missing rate.</p>
+    <div class="controls">
+      <label for="g-median">Lognormal median <input id="g-median" type="range" min="1" max="20" step="0.5" value="9.5"><output id="g-median-o">9.5 s</output></label>
+      <label for="g-seed">Random seed <input id="g-seed" type="range" min="1" max="20" value="3"><output id="g-seed-o">3</output></label>
+    </div>
+    <canvas id="gapCanvas" height="120" aria-label="Simulated ball gaps"></canvas>
+    <div class="readout" id="gapReadout"></div>
+  </div>
+  <h3>Players: blackouts, tracklets, slots</h3>
+  <ul>
+    <li><strong>Blackouts</strong>: 30% of ball gaps also hide each player with a probability drawn
+    from U(0.2, 0.6), plus rare player-only blackouts. This reproduces "≤ 18 tracked ⇒ ball missing 85%".</li>
+    <li><strong>Tracklets</strong>: each player's visible time is cut at identity breaks (mean every 400 s)
+    and at hides. Independent single-player dropouts are rare (0.5%), because the real tracker rarely
+    drops one player alone.</li>
+    <li><strong>Slots</strong>: tracklets are packed into anonymous slots, a free slot of the same team
+    first. 2% land in a wrong-team slot (cross-team identity switch).</li>
+  </ul>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Statistic</th><th class="num">Real hackathon</th><th class="num">Degraded DFL</th></tr></thead>
+    <tbody>
+      <tr><td>Ball missing on graded frames</td><td class="num">40.7%</td><td class="num">~40%</td></tr>
+      <tr><td>Median gap / p99</td><td class="num">10.7 s / 105 s</td><td class="num">9–14 s / 78–104 s</td></tr>
+      <tr><td>Ball missing when ≤ 18 tracked</td><td class="num">85%</td><td class="num">85–99%</td></tr>
+      <tr><td>Tracklets per minute</td><td class="num">11.5</td><td class="num">10–13</td></tr>
+      <tr><td>Baseline smooth50 spellF1 (full match)</td><td class="num">0.243</td><td class="num">0.247</td></tr>
+    </tbody>
+  </table></div>
+  <div class="why"><b>Two bugs this calibration caught</b>Identity breaks reused the same slot, so
+  they were invisible and slots kept following one player. And in two DFL matches the referees
+  were parsed as away players, so a "nearest away player" could be the referee. Both are fixed, each with a regression test.</div>
+</section>
+
+<!-- 7 ---------------------------------------------------------------------------------- -->
+<section id="diagnostics">
+  <span class="eyebrow">7 · Understanding failures</span>
+  <h2>Diagnostics and edge-case scenarios</h2>
+  <p>A single spellF1 hides <em>why</em> points are lost. Every bench run also explains each missed
+  true possession with one cause:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Cause</th><th>Meaning</th><th>Typical fix</th></tr></thead>
+    <tbody>
+      <tr><td>wrong team</td><td>Mostly predicted as the other team</td><td>Better team evidence</td></tr>
+      <tr><td>absorbed by dead</td><td>Mostly predicted dead</td><td>Better dead-ball detection</td></tr>
+      <tr><td>merged</td><td>A predicted spell also swallowed a neighbouring true spell</td><td>Allow short changes when the evidence is sharp</td></tr>
+      <tr><td>split</td><td>Two or more predicted spells cut it up</td><td>Higher change penalty, less flicker</td></tr>
+      <tr><td>boundary</td><td>One matching spell, but its edges are too far off</td><td>Sharper timing</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>bench/scenarios.py</code> goes further: 13 situations mined automatically from the labelled
+  matches, each with one pass/fail rule. For example: a pass flying past opponents, a hand-over while
+  the ball is invisible, a stoppage restarted by the other team, a kick-off. A companion page shows a
+  replay of each (<code>reports/scenarios/index.html</code>).</p>
+</section>
+
+<!-- 8 ---------------------------------------------------------------------------------- -->
+<section id="baseline">
+  <span class="eyebrow">8 · Method 0</span>
+  <h2>Baseline: smooth50</h2>
+  <p>The organisers' reference: on each frame where the ball is tracked, give it to the team of the
+  nearest tracked player (distances in metres, both axes scaled). Where the ball is not tracked,
+  say nobody. Then take a centred majority vote over ±50 frames (4 s); <code>D</code> if the window
+  saw no ball at all.</p>
+  <ul>
+    <li>Its only idea of a dead ball is "no ball seen": wrong both ways (dead balls are often tracked, live ones often lost). Dead-ball frame error: 51%.</li>
+    <li>A fixed window blurs each change by up to 2 s and outvotes any possession shorter than about 2 s.</li>
+    <li>There is no notion of a possession lasting: the vote is recomputed frame by frame.</li>
+  </ul>
+</section>
+
+<!-- 9 ---------------------------------------------------------------------------------- -->
+<section id="hmm">
+  <span class="eyebrow">9 · Method 1</span>
+  <h2>M1: evidence + Viterbi decoding</h2>
+  <p>A <strong>hidden Markov model</strong> treats the true state (H, A or D) as hidden and changing
+  rarely, observed only through noisy clues. Decoding means finding the single sequence of states
+  that best explains all the clues at once. We use it in its "energy" form: per-frame evidence
+  scores <math><msub><mi>e</mi><mi>t</mi></msub><mo>(</mo><mi>s</mi><mo>)</mo></math> and a cost
+  <math><mi>c</mi><mo>(</mo><mi>s</mi><mo>′</mo><mo>,</mo><mi>s</mi><mo>)</mo></math> for each change.</p>
+  <div class="formula">
+    <math display="block"><mrow><msup><mi>s</mi><mo>*</mo></msup><mo>=</mo><munder><mrow><mi>arg</mi><mo>⁡</mo><mi>max</mi></mrow><msub><mi>s</mi><mrow><mn>1</mn><mo>:</mo><mi>T</mi></mrow></msub></munder><munderover><mo>∑</mo><mrow><mi>t</mi><mo>=</mo><mn>1</mn></mrow><mi>T</mi></munderover><msub><mi>e</mi><mi>t</mi></msub><mo>(</mo><msub><mi>s</mi><mi>t</mi></msub><mo>)</mo><mo>−</mo><munderover><mo>∑</mo><mrow><mi>t</mi><mo>=</mo><mn>2</mn></mrow><mi>T</mi></munderover><mi>c</mi><mo>(</mo><msub><mi>s</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>,</mo><msub><mi>s</mi><mi>t</mi></msub><mo>)</mo></mrow></math>
+    <math display="block"><mrow><msub><mi>δ</mi><mi>t</mi></msub><mo>(</mo><mi>s</mi><mo>)</mo><mo>=</mo><msub><mi>e</mi><mi>t</mi></msub><mo>(</mo><mi>s</mi><mo>)</mo><mo>+</mo><munder><mi>max</mi><mrow><mi>s</mi><mo>′</mo></mrow></munder><mo>[</mo><msub><mi>δ</mi><mrow><mi>t</mi><mo>−</mo><mn>1</mn></mrow></msub><mo>(</mo><mi>s</mi><mo>′</mo><mo>)</mo><mo>−</mo><mi>c</mi><mo>(</mo><mi>s</mi><mo>′</mo><mo>,</mo><mi>s</mi><mo>)</mo><mo>]</mo></mrow></math>
+    <span class="note">Viterbi computes δ<sub>t</sub>(s), the best score of any sequence ending in state s at
+    frame t, one frame at a time, keeping a back-pointer. Walking the back-pointers from the end
+    gives the optimum. Cost: O(T·S²), that is 3 × 3 operations per frame, under a second per match.
+    It is exact: the tests check it against brute force over all 3<sup>6</sup> sequences.</span>
+  </div>
+  <p>Why this beats a vote: a change is made only if the evidence for it, summed over the frames it
+  covers, exceeds its cost. A 3-frame flicker earns about 6 points against a cost of 40: ignored.
+  An opponent controlling the ball for 1 s earns about 50: taken. When there is no evidence, staying
+  put is cheapest, so the last team carries forward through gaps on its own. And because the whole
+  half is decoded at once, each change lands where the evidence flips, with no window lag.</p>
+  <h3>The evidence (hand-built, no training)</h3>
+  <ul>
+    <li><strong>Dead vs alive</strong>: mean player speed over 2 s against a walking threshold of 1.5 m/s,
+    a strong bonus when the ball is beyond a line, and a small one when the ball is not tracked.</li>
+    <li><strong>Home vs away</strong>: only when a player is within 1.5 m of the ball, the gap between the
+    two teams' nearest distances. A ball in flight or invisible gives <em>no</em> team evidence rather than a wrong guess.</li>
+  </ul>
+  <div class="demo" id="demo-viterbi">
+    <div class="demo-head"><h3>Smoothing versus decoding</h3><span class="tag">Interactive</span></div>
+    <p class="muted" style="font-size:0.92rem">A synthetic 60 s sequence: Barcelona keeps the ball through
+    passes that fly past opponents (flickers), the tracker loses the ball for 8 s, Athletic wins it
+    at 34 s, the ball goes out at 46 s and Athletic restarts. Both rows below read the same raw
+    nearest-player clues.</p>
+    <div class="controls">
+      <label for="v-window">Vote window ± <input id="v-window" type="range" min="0" max="125" value="50"><output id="v-window-o">50 f</output></label>
+      <label for="v-penalty">Change penalty <input id="v-penalty" type="range" min="0" max="120" value="40"><output id="v-penalty-o">40</output></label>
+    </div>
+    <canvas id="viterbiCanvas" height="176" aria-label="Truth, raw clues, smoothing and Viterbi rows"></canvas>
+    <div class="readout" id="viterbiReadout"></div>
+  </div>
+  <div class="why"><b>Tuning without fooling ourselves</b>Dead-ball weights were tuned on DFL's
+  live/dead F1, and team weights on DFL's team accuracy. Both mean the same thing in both datasets.
+  The change penalty was set so the predicted possession rate on the full real match (4.35 per
+  live minute) matches the public window's 4.25, not to maximise DFL spellF1. Result: 0.247 → 0.352.</div>
+</section>
+
+<!-- 10 --------------------------------------------------------------------------------- -->
+<section id="learned">
+  <span class="eyebrow">10 · Method 2</span>
+  <h2>M2: learned evidence with gradient-boosted trees</h2>
+  <p>M1's clues all need the ball. In the real data the ball is missing for 10–30 s at a time, and a
+  hand-written rule cannot tell slow live play from a stoppage. M2 replaces the hand-built evidence
+  with a model that combines many weak clues into calibrated probabilities
+  <math><mi>P</mi><mo>(</mo><mi>H</mi><mo>)</mo><mo>,</mo><mi>P</mi><mo>(</mo><mi>A</mi><mo>)</mo><mo>,</mo><mi>P</mi><mo>(</mo><mi>D</mi><mo>)</mo></math>
+  per frame, then decodes them with the same Viterbi.</p>
+  <h3>42 context features, mostly ball-free</h3>
+  <div class="cols">
+    <div class="card"><h4>Team shape</h4><p>Per team: centroid, forward speed, spread, front and back lines, in
+    that team's attacking direction. The attacking team pushes up, the defending team drops back.</p></div>
+    <div class="card"><h4>Tempo</h4><p>Mean player speed over 1, 3 and 8 s, and "past 3 s minus next 3 s":
+    a sudden team-wide stop is the signature of a whistle.</p></div>
+    <div class="card"><h4>Ball memory</h4><p>Seconds since and until the ball is seen, where it was last and will
+    next be seen (distance to a line), and its last speed: a ball last seen heading for a line explains a gap.</p></div>
+    <div class="card"><h4>Control memory</h4><p>Which team last and next had a player within 1.5 m of the ball,
+    and how long ago. Plus the M1 team clue averaged over 0.5, 2 and 5 s.</p></div>
+  </div>
+  <figure>
+    <div class="figure-box">
+    <svg viewBox="0 0 640 230" role="img" aria-label="Direction of play: defenders stand between attackers and their own goal">
+      <rect x="20" y="20" width="600" height="190" rx="4" fill="var(--pitch-soft)" stroke="var(--line)"/>
+      <line x1="320" y1="20" x2="320" y2="210" stroke="var(--line)"/>
+      <rect x="20" y="80" width="10" height="70" fill="var(--line)"/><rect x="610" y="80" width="10" height="70" fill="var(--line)"/>
+      <text x="36" y="40" font-size="11" class="t-muted">home goal</text><text x="548" y="40" font-size="11" class="t-muted">away goal</text>
+      <g class="home"><circle cx="300" cy="70" r="7"/><circle cx="360" cy="120" r="7"/><circle cx="330" cy="170" r="7"/><circle cx="420" cy="100" r="7"/><circle cx="250" cy="140" r="7"/></g>
+      <g class="away"><circle cx="440" cy="70" r="7"/><circle cx="480" cy="130" r="7"/><circle cx="460" cy="180" r="7"/><circle cx="520" cy="110" r="7"/><circle cx="410" cy="150" r="7"/></g>
+      <circle cx="318" cy="110" r="10" fill="none" stroke="var(--home)" stroke-width="2"/><text x="296" y="98" font-size="11" fill="var(--home)">home centroid</text>
+      <circle cx="462" cy="128" r="10" fill="none" stroke="var(--away)" stroke-width="2"/><text x="440" y="158" font-size="11" fill="var(--away)" dy="40">away centroid</text>
+      <path d="M330,200 L450,200" class="edge-accent" marker-end="url(#ah)"/>
+      <text x="300" y="224" font-size="11.5" class="t-muted">home attacks this way in this half</text>
+    </svg>
+    </div>
+    <figcaption>Figure 3. Which way does each team attack? Whoever has the ball, the defenders stand
+    between the attackers and their own goal, so home's centroid sits behind away's on average over
+    a half. The sign of that median difference gives the direction, with no event data and no
+    goalkeeper identity, which the anonymous slots do not provide.</figcaption>
+  </figure>
+  <h3>How gradient-boosted trees learn</h3>
+  <p>The model is a sum of many small decision trees. Each new tree is fitted to the
+  <em>errors</em> of the sum so far, more precisely to the negative gradient of the loss, and added
+  with a small learning rate. For three classes there are three such sums, turned into probabilities
+  by a softmax and trained on the multiclass log loss:</p>
+  <div class="formula">
+    <math display="block"><mrow><msubsup><mi>F</mi><mi>k</mi><mrow><mo>(</mo><mi>m</mi><mo>)</mo></mrow></msubsup><mo>(</mo><mi>x</mi><mo>)</mo><mo>=</mo><msubsup><mi>F</mi><mi>k</mi><mrow><mo>(</mo><mi>m</mi><mo>−</mo><mn>1</mn><mo>)</mo></mrow></msubsup><mo>(</mo><mi>x</mi><mo>)</mo><mo>+</mo><mi>η</mi><mspace width="0.2em"/><msub><mi>h</mi><mrow><mi>k</mi><mo>,</mo><mi>m</mi></mrow></msub><mo>(</mo><mi>x</mi><mo>)</mo><mspace width="2em"/><msub><mi>p</mi><mi>k</mi></msub><mo>=</mo><mfrac><msup><mi>e</mi><msub><mi>F</mi><mi>k</mi></msub></msup><mrow><msub><mo>∑</mo><mi>j</mi></msub><msup><mi>e</mi><msub><mi>F</mi><mi>j</mi></msub></msup></mrow></mfrac><mspace width="2em"/><mi>L</mi><mo>=</mo><mo>−</mo><mi>log</mi><msub><mi>p</mi><mi>y</mi></msub></mrow></math>
+    <span class="note">h<sub>k,m</sub> is a tree fitted to −∂L/∂F<sub>k</sub> = 𝟙[y = k] − p<sub>k</sub>. Trees handle
+    mixed scales, missing values (NaN goes to a learned side of each split) and interactions such as
+    "ball unseen <em>and</em> players slow <em>and</em> last seen near a line" without any feature engineering.</span>
+  </div>
+  <p><strong>Why LightGBM</strong>: it bins features into histograms and grows trees leaf-wise, so a
+  model over 900,000 rows trains in about 30 s on a laptop. It handles NaN natively. And it can be
+  made fully deterministic (fixed seed, row-wise, fixed threads), which reproducibility needs.
+  Settings: 300 trees, 31 leaves, learning rate 0.05, at least 200 rows per leaf.</p>
+  <h3>Training without leaking</h3>
+  <ul>
+    <li>Training data: the 7 DFL matches <em>degraded</em> exactly as on the bench, so the model learns from hackathon-like gaps.</li>
+    <li>Every match is also used with home and away swapped (teams and labels), so the model cannot learn "home usually has the ball" and gets twice the data.</li>
+    <li>One frame in three is kept: neighbouring frames are near duplicates.</li>
+    <li><strong>Leave-one-match-out</strong>: 7 extra models, each trained without one match. When the bench scores a DFL match, it automatically uses the model that never saw it.</li>
+  </ul>
+  <p>Probabilities enter the decoder as <math><msub><mi>e</mi><mi>t</mi></msub><mo>(</mo><mi>s</mi><mo>)</mo><mo>=</mo><mi>log</mi><mi>P</mi><mo>(</mo><mi>s</mi><mo>∣</mo><msub><mi>x</mi><mi>t</mi></msub><mo>)</mo></math>,
+  so only the penalty-to-evidence ratio matters. With confident evidence the switch penalty could
+  drop to 10: held-out DFL is flat for 3–10, and 10 gives 4.16 possessions per live minute on the
+  real match. The two criteria now agree.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Held-out DFL</th><th class="num">smooth50</th><th class="num">M1</th><th class="num">M2</th></tr></thead>
+    <tbody>
+      <tr><td>spellF1</td><td class="num">0.247</td><td class="num">0.352</td><td class="num"><strong>0.522</strong></td></tr>
+      <tr><td>macroF1</td><td class="num">0.585</td><td class="num">0.80</td><td class="num"><strong>0.883</strong></td></tr>
+      <tr><td>Frame error, dead ball</td><td class="num">51%</td><td class="num">21%</td><td class="num"><strong>3.6%</strong></td></tr>
+      <tr><td>Scenario: restart by the other team</td><td class="num">1%</td><td class="num">23%</td><td class="num"><strong>55%</strong></td></tr>
+      <tr><td>Scenario: change while the ball is invisible</td><td class="num">4%</td><td class="num">0%</td><td class="num"><strong>25%</strong></td></tr>
+      <tr><td>Scenario: hold through a 10 s+ ball gap</td><td class="num">0%</td><td class="num">23%</td><td class="num">23%</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<!-- 11 --------------------------------------------------------------------------------- -->
+<section id="hsmm">
+  <span class="eyebrow">11 · Method 3 · <span class="status wip">evaluated, not adopted</span></span>
+  <h2>M3: the semi-Markov decoder</h2>
+  <p>M2 still splits live possessions inside long ball gaps. Its probabilities are not wrong: a long
+  gap usually <em>is</em> a stoppage, so P(dead) rises with gap length (0.30 for 10–15 s, 0.65 beyond
+  60 s). The decoder is the problem. It adds up the same slight lean over hundreds of near-identical
+  frames, as if each were new information, and the sum outweighs the cost of stopping and restarting.</p>
+  <p>A <strong>hidden semi-Markov model</strong> scores whole segments instead of frames, which gives two
+  natural places to fix this:</p>
+  <div class="formula">
+    <math display="block"><mrow><mi>score</mi><mo>(</mo><mo>[</mo><mi>a</mi><mo>,</mo><mi>b</mi><mo>)</mo><mo>,</mo><mi>s</mi><mo>)</mo><mo>=</mo><munderover><mo>∑</mo><mrow><mi>t</mi><mo>=</mo><mi>a</mi></mrow><mrow><mi>b</mi><mo>−</mo><mn>1</mn></mrow></munderover><msub><mi>w</mi><mi>t</mi></msub><mspace width="0.15em"/><msub><mi>e</mi><mi>t</mi></msub><mo>(</mo><mi>s</mi><mo>)</mo><mo>+</mo><mi>λ</mi><mspace width="0.15em"/><mi>log</mi><msub><mi>P</mi><mi>s</mi></msub><mo>(</mo><mi>b</mi><mo>−</mo><mi>a</mi><mo>)</mo><mspace width="2em"/><msub><mi>w</mi><mi>t</mi></msub><mo>=</mo><mi>min</mi><mo>(</mo><mn>1</mn><mo>,</mo><mfrac><mi>κ</mi><mi>G</mi></mfrac><mo>)</mo></mrow></math>
+    <math display="block"><mrow><msub><mi>δ</mi><mi>c</mi></msub><mo>(</mo><mi>s</mi><mo>)</mo><mo>=</mo><munder><mi>max</mi><mrow><mi>d</mi><mo>≤</mo><msub><mi>D</mi><mi>s</mi></msub></mrow></munder><mo>[</mo><munder><mi>max</mi><mrow><mi>s</mi><mo>′</mo></mrow></munder><mo>(</mo><msub><mi>δ</mi><mrow><mi>c</mi><mo>−</mo><mi>d</mi></mrow></msub><mo>(</mo><mi>s</mi><mo>′</mo><mo>)</mo><mo>−</mo><mi>c</mi><mo>(</mo><mi>s</mi><mo>′</mo><mo>,</mo><mi>s</mi><mo>)</mo><mo>)</mo><mo>+</mo><mi>score</mi><mo>(</mo><mo>[</mo><mi>c</mi><mo>−</mo><mi>d</mi><mo>,</mo><mi>c</mi><mo>)</mo><mo>,</mo><mi>s</mi><mo>)</mo><mo>]</mo></mrow></math>
+    <span class="note">Segment evidence comes from prefix sums, so each candidate duration costs O(1). G is the
+    length of the ball gap a frame belongs to.</span>
+  </div>
+  <div class="cols">
+    <div class="card"><h4>Duration priors</h4><p>Lognormal per state: stoppages from DFL (median 18 s,
+    σ 0.92, consistent with the public window); possessions wide (σ 1.2) with a tunable median,
+    because DFL and the hackathon disagree there.</p></div>
+    <div class="card"><h4>Gap weighting</h4><p>A ball gap of G frames counts as at most κ frames of
+    evidence: its frames repeat one piece of information. A true stoppage still wins (a confident
+    P(dead) over κ frames beats the penalties); a slight lean no longer does.</p></div>
+    <div class="card"><h4>Speed and precision</h4><p>The segment search runs on 0.2 s blocks (up to 3
+    minutes per possession, 10 per stoppage), then every boundary is moved to the exact frame,
+    ±10 frames, from the per-frame evidence. About 3 s per match.</p></div>
+  </div>
+  <h3>Result: a useful negative</h3>
+  <p>The ablation (<code>scripts/ablate_m3.py</code>) compared 17 variants on held-out DFL, the public
+  window, the real possession rate and the targeted scenarios. None beat M2, so M2 stays.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Variant</th><th class="num">DFL spellF1</th><th class="num">Hold through gap</th><th class="num">Change in gap</th><th class="num">Real rate / min</th></tr></thead>
+    <tbody>
+      <tr class="best"><td>A · M2, plain Viterbi</td><td class="num">0.522</td><td class="num">23%</td><td class="num">25%</td><td class="num">4.16</td></tr>
+      <tr><td>B · gap weighting, κ 25–200 frames</td><td class="num">0.481–0.507</td><td class="num">27–30%</td><td class="num">4–14%</td><td class="num">3.76–4.11</td></tr>
+      <tr><td>C · duration priors, λ 1–3</td><td class="num">0.502–0.517</td><td class="num">23%</td><td class="num">21–24%</td><td class="num">3.70–3.92</td></tr>
+      <tr><td>D · both</td><td class="num">0.463–0.492</td><td class="num">28–30%</td><td class="num">3–9%</td><td class="num">3.54–3.83</td></tr>
+    </tbody>
+  </table></div>
+  <div class="why"><b>What we learned</b>The redundancy assumption was wrong. Inside a ball gap the
+  learned evidence is not one repeated fact: who last and next controlled the ball, and how the
+  teams move, tell the model <em>when</em> a hand-over happens. Down-weighting gaps barely helped the
+  hold case (23% → 30%) and wiped out change detection (25% → 4%). The duration priors were
+  already implied by the learned probabilities plus the switch penalty. The 23% hold rate is a
+  trade-off the data supports (long gaps usually are stoppages), so the next gain must come from
+  better gap features, not from the decoder. <code>possession/hsmm.py</code> stays in the repo,
+  tested against brute force, as an option for later.</div>
+</section>
+
+<!-- 12 --------------------------------------------------------------------------------- -->
+<section id="validation">
+  <span class="eyebrow">12 · Method</span>
+  <h2>Validation discipline</h2>
+  <ul>
+    <li><strong>Noise bands.</strong> Full-match spellF1 differences under ~0.04 are noise (the sample is the
+    possessions, not the frames); macroF1 under ~0.01. Every decision above clears that by a wide margin.</li>
+    <li><strong>The public window is a correctness check, not a leaderboard.</strong> 17 possessions; it ranks the organisers' own baselines in the wrong order.</li>
+    <li><strong>Held-out only.</strong> Every DFL number for a learned model comes from a model that never saw that match.</li>
+    <li><strong>Definition gap.</strong> Anything that sets <em>how often</em> possession changes is checked against the real match's possession rate, never fitted to DFL.</li>
+    <li><strong>Targeted scenarios.</strong> A global gain can hide a regression on restarts or gaps; the 13 scenarios catch it.</li>
+  </ul>
+</section>
+
+<!-- 13 --------------------------------------------------------------------------------- -->
+<section id="submission">
+  <span class="eyebrow">13 · Delivery</span>
+  <h2>Submission, reproducibility and privacy</h2>
+  <p><code>uv run python -m possession.submit</code> rebuilds the match from the raw bundle, runs the
+  chosen method, writes <code>submissions/AndaAnda.csv</code> and runs the organisers' validator. It
+  takes about 15 s and is byte-identical across runs: dependencies are pinned in <code>uv.lock</code>,
+  the model in <code>models/lgbm.txt</code> is trained deterministically on public data, and nothing is random.</p>
+  <div class="why"><b>Privacy rule</b>The terms forbid giving the match data, or any extract, to a
+  cloud LLM. Code is written against the documented formats. Every command on the hackathon data
+  prints aggregates only, and frame-level files (<code>data/</code>, <code>official_data/</code>,
+  <code>reports/</code>, <code>submissions/</code>) are gitignored. All replays and examples on this
+  page use public DFL data or the public 5-minute ground truth.</div>
+</section>
+
+<!-- 14 --------------------------------------------------------------------------------- -->
+<section id="map">
+  <span class="eyebrow">14 · Reference</span>
+  <h2>Code map</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Path</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><code>bench/match.py</code></td><td>Common format, <code>without_labels()</code>, graded mask</td></tr>
+      <tr><td><code>bench/dfl.py</code>, <code>bench/epts.py</code></td><td>Readers: DFL XML (streaming), FIFA/EPTS for the hackathon and Metrica</td></tr>
+      <tr><td><code>bench/degrade.py</code></td><td>Calibrated degrader (profiles: hackathon, ball-only, clean)</td></tr>
+      <tr><td><code>bench/evaluate.py</code></td><td>Official scorer + diagnostics (miss causes, lag, context errors, worst stretches)</td></tr>
+      <tr><td><code>bench/scenarios.py</code>, <code>bench/preview.py</code></td><td>13 edge-case scenarios, MP4 replays</td></tr>
+      <tr><td><code>possession/baseline.py</code></td><td>smooth50</td></tr>
+      <tr><td><code>possession/features.py</code>, <code>possession/hmm.py</code></td><td>M1 evidence and Viterbi</td></tr>
+      <tr><td><code>possession/context.py</code>, <code>possession/learned.py</code></td><td>M2 features, LightGBM, leave-one-match-out guard</td></tr>
+      <tr><td><code>possession/hsmm.py</code></td><td>M3 semi-Markov decoder</td></tr>
+      <tr><td><code>possession/submit.py</code></td><td>One command to a validated submission</td></tr>
+      <tr><td><code>scripts/</code></td><td>Tuning (<code>tune_hmm</code>, <code>tune_learned</code>), M3 ablation, scenario page</td></tr>
+    </tbody>
+  </table></div>
+</section>
+</main>
+</div>
+
+<script>
+(() => {
+  const FPS = 25;
+  const css = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const COLORS = () => ({ 0: css('--home'), 1: css('--away'), 2: css('--dead'), 3: css('--sunk'),
+    ink: css('--ink'), muted: css('--muted'), line: css('--line'), surface: css('--surface'), pitch: css('--pitch') });
+  const H = 0, A = 1, D = 2;
+
+  // Real public GT, frames 11185-18684 (from evaluation/gt, public)
+  const PUBLIC = [[A,166],[H,202],[A,71],[H,1041],[A,186],[D,138],[H,715],[A,81],[H,1061],[A,500],[H,19],
+    [A,401],[H,33],[A,90],[D,511],[A,893],[H,87],[D,458],[A,189],[D,362],[H,296]];
+  const expand = (runs) => { const out = []; for (const [k, n] of runs) for (let i = 0; i < n; i++) out.push(k); return out; };
+  const GT = expand(PUBLIC);
+
+  function setupCanvas(cv) {
+    const dpr = window.devicePixelRatio || 1;
+    const w = cv.clientWidth, h = cv.height;
+    if (!cv.dataset.h) cv.dataset.h = h;
+    const hh = +cv.dataset.h;
+    cv.width = Math.round(w * dpr); cv.height = Math.round(hh * dpr);
+    cv.style.height = hh + 'px';
+    const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    return [ctx, w, hh];
+  }
+  function strip(ctx, codes, x0, y, w, h, c) {
+    const n = codes.length; let start = 0;
+    for (let i = 1; i <= n; i++) {
+      if (i === n || codes[i] !== codes[start]) {
+        ctx.fillStyle = c[codes[start]];
+        ctx.fillRect(x0 + start / n * w, y, Math.max(1, (i - start) / n * w), h);
+        start = i;
+      }
+    }
+  }
+  function label(ctx, text, x, y, c, size = 11) { ctx.fillStyle = c; ctx.font = `${size}px "IBM Plex Mono", monospace`; ctx.fillText(text, x, y); }
+
+  // -- spellF1 (same logic as possession_metrics.py) ----------------------------------------
+  function spells(codes) {
+    const out = []; let s = 0;
+    for (let i = 1; i <= codes.length; i++) {
+      if (i === codes.length || codes[i] !== codes[s]) { if (codes[s] === H || codes[s] === A) out.push([s, i, codes[s]]); s = i; }
+    }
+    return out;
+  }
+  function spellF1(gt, pr) {
+    const g = spells(gt), p = spells(pr), ov = [];
+    g.forEach(([a, b, k], i) => p.forEach(([c, d, k2], j) => {
+      if (k === k2 && c < b && a < d) ov.push([(Math.min(b, d) - Math.max(a, c)) / (Math.max(b, d) - Math.min(a, c)), i, j]);
+    }));
+    ov.sort((x, y) => y[0] - x[0] || x[1] - y[1] || x[2] - y[2]);
+    const per = [0.3, 0.4, 0.5, 0.6, 0.7].map(t => {
+      const mg = new Set(), mp = new Set();
+      for (const [iou, i, j] of ov) { if (iou < t) break; if (mg.has(i) || mp.has(j)) continue; mg.add(i); mp.add(j); }
+      const tp = mg.size, fp = p.length - tp, fn = g.length - tp;
+      return { t, f1: tp ? 2 * tp / (2 * tp + fp + fn) : 0, matched: [...mg], pm: [...mp] };
+    });
+    return { mean: per.reduce((s, x) => s + x.f1, 0) / per.length, per, g, p };
+  }
+
+  // -- Figure 2: public GT ------------------------------------------------------------------
+  function drawPublic() {
+    const cv = document.getElementById('publicGt'); const [ctx, w, h] = setupCanvas(cv); const c = COLORS();
+    ctx.clearRect(0, 0, w, h);
+    strip(ctx, GT, 0, 14, w, 40, c);
+    ctx.strokeStyle = c.line; ctx.lineWidth = 1;
+    for (let m = 0; m <= 5; m++) { const x = Math.min(w - 1, m * 60 * FPS / GT.length * w); ctx.beginPath(); ctx.moveTo(x, 58); ctx.lineTo(x, 64); ctx.stroke(); label(ctx, m + ':00', Math.min(x + 2, w - 30), 78, c.muted); }
+    const s = spells(GT); label(ctx, `${s.length} possessions · 4 stoppages · 7,500 frames`, 0, 10, c.muted);
+  }
+
+  // -- Demo 1 -----------------------------------------------------------------------------
+  function edited() {
+    const shift = +document.getElementById('m-shift').value;
+    let runs = PUBLIC.map(r => r.slice());
+    if (document.getElementById('m-merge').checked) {
+      const i = runs.findIndex(r => r[0] === H && r[1] === 19);
+      runs[i - 1][1] += 19 + runs[i + 1][1]; runs.splice(i, 2);
+    }
+    let codes = expand(runs);
+    if (document.getElementById('m-split').checked) {
+      let s = 0; for (const [k, n] of PUBLIC) { if (n === 1061) break; s += n; }
+      for (let i = s + 520; i < s + 545; i++) codes[i] = A;
+    }
+    if (shift !== 0) {  // move every change point by `shift` frames
+      const out = codes.slice();
+      for (let i = 0; i < codes.length; i++) { const j = Math.min(codes.length - 1, Math.max(0, i - shift)); out[i] = codes[j]; }
+      codes = out;
+    }
+    if (document.getElementById('m-flicker').checked) {
+      [700, 1500, 2600, 3400, 5000, 6800].forEach(f => { const k = codes[f] === H ? A : H; for (let i = f; i < f + 8; i++) if (codes[i] !== D) codes[i] = k; });
+    }
+    return codes;
+  }
+  function drawMetric() {
+    const cv = document.getElementById('metricCanvas'); const [ctx, w, h] = setupCanvas(cv); const c = COLORS();
+    const pr = edited(); const r = spellF1(GT, pr); const n = GT.length;
+    ctx.clearRect(0, 0, w, h);
+    label(ctx, 'truth', 0, 12, c.muted); strip(ctx, GT, 0, 18, w, 30, c);
+    label(ctx, 'prediction', 0, 72, c.muted); strip(ctx, pr, 0, 78, w, 30, c);
+    const at5 = r.per[2];
+    ctx.fillStyle = c.ink;
+    at5.matched.forEach(i => { const [a, b] = r.g[i]; ctx.fillRect((a + b) / 2 / n * w - 1, 52, 2, 22); });
+    label(ctx, 'dark ticks: matched at IoU ≥ 0.5', 0, 126, c.muted, 10.5);
+    const out = document.getElementById('metricReadout');
+    out.innerHTML = `<span class="pill">spellF1 <b>${r.mean.toFixed(3)}</b></span>` +
+      `<span class="pill">true possessions <b>${r.g.length}</b></span><span class="pill">predicted <b>${r.p.length}</b></span>` +
+      r.per.map(x => `<span class="pill">F1@${x.t} <b>${x.f1.toFixed(2)}</b></span>`).join('');
+    document.getElementById('m-shift-o').textContent = `${document.getElementById('m-shift').value} f`;
+  }
+
+  // -- Demo 2: smoothing vs Viterbi -------------------------------------------------------
+  const T2 = 60 * FPS;
+  const truth2 = [], raw2 = [];  // raw: 0 home, 1 away, -1 nobody, plus dead clue
+  const deadClue = [];
+  (function build() {
+    let seed = 7; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    for (let t = 0; t < T2; t++) {
+      const s = t / FPS;
+      const state = s < 34 ? H : s < 46 ? A : s < 52 ? D : A;
+      truth2.push(state);
+      let clue = state === D ? -1 : state;
+      if (state !== D && rnd() < 0.18) clue = -1;                   // nobody near the ball
+      if (s > 24 && s < 32) clue = -1;                              // tracker loses the ball
+      if ([6, 11, 17, 21].some(f => s > f && s < f + 0.28)) clue = A; // passes past opponents
+      if (s > 38 && s < 38.2) clue = H;                              // a deflection
+      raw2.push(clue);
+      deadClue.push(state === D ? 1 : 0);
+    }
+  })();
+  function smooth(window) {
+    return raw2.map((_, i) => {
+      let h = 0, a = 0;
+      for (let j = Math.max(0, i - window); j <= Math.min(T2 - 1, i + window); j++) { if (raw2[j] === 0) h++; else if (raw2[j] === 1) a++; }
+      return h + a === 0 ? D : (h >= a ? H : A);
+    });
+  }
+  function viterbi(penalty) {
+    const e = raw2.map((clue, t) => {
+      const team = clue === 0 ? 2 : clue === 1 ? -2 : 0;
+      const dead = deadClue[t] ? 2.5 : -1.0;   // a walking-pace clue in the stoppage
+      return [team, -team, dead];
+    });
+    const pen = (a, b) => a === b ? 0 : penalty;
+    let best = e[0].slice(); const back = [];
+    for (let t = 1; t < T2; t++) {
+      const nb = [0, 0, 0], bk = [0, 0, 0];
+      for (let s = 0; s < 3; s++) {
+        let m = -Infinity, arg = 0;
+        for (let p = 0; p < 3; p++) { const v = best[p] - pen(p, s); if (v > m) { m = v; arg = p; } }
+        nb[s] = m + e[t][s]; bk[s] = arg;
+      }
+      back.push(bk); best = nb;
+    }
+    const path = new Array(T2); path[T2 - 1] = best.indexOf(Math.max(...best));
+    for (let t = T2 - 1; t > 0; t--) path[t - 1] = back[t - 1][path[t]];
+    return path;
+  }
+  function drawViterbi() {
+    const win = +document.getElementById('v-window').value, pen = +document.getElementById('v-penalty').value;
+    document.getElementById('v-window-o').textContent = `${win} f`;
+    document.getElementById('v-penalty-o').textContent = pen;
+    const cv = document.getElementById('viterbiCanvas'); const [ctx, w, h] = setupCanvas(cv); const c = COLORS();
+    ctx.clearRect(0, 0, w, h);
+    const lw = 92, sw = w - lw;
+    const rawCodes = raw2.map(x => x === -1 ? 3 : x);
+    const sm = smooth(win), vt = viterbi(pen);
+    const rows = [['truth', truth2], ['raw clue', rawCodes], [`vote ±${win}`, sm], [`viterbi ${pen}`, vt]];
+    rows.forEach(([name, codes], i) => { label(ctx, name, 0, 26 + i * 38, c.muted); strip(ctx, codes, lw, 10 + i * 38, sw, 26, c); });
+    ctx.fillStyle = c.muted; ctx.font = '10.5px "IBM Plex Mono", monospace';
+    for (let s = 0; s <= 60; s += 10) { const x = lw + s / 60 * sw; ctx.fillRect(x, 160, 1, 5); ctx.fillText(s + 's', Math.min(x + 2, w - 22), 174); }
+    const score = (p) => spellF1(truth2, p).mean;
+    const nsp = (p) => spells(p).length;
+    document.getElementById('viterbiReadout').innerHTML =
+      `<span class="pill">true possessions <b>${nsp(truth2)}</b></span>` +
+      `<span class="pill">vote: <b>${nsp(sm)}</b> possessions, spellF1 <b>${score(sm).toFixed(2)}</b></span>` +
+      `<span class="pill">viterbi: <b>${nsp(vt)}</b> possessions, spellF1 <b>${score(vt).toFixed(2)}</b></span>` +
+      `<span class="pill">white on "raw clue" = nobody near the ball</span>`;
+  }
+
+  // -- Demo 3: gap model ------------------------------------------------------------------
+  function drawGaps() {
+    const med = +document.getElementById('g-median').value, seed0 = +document.getElementById('g-seed').value;
+    document.getElementById('g-median-o').textContent = `${med} s`;
+    document.getElementById('g-seed-o').textContent = seed0;
+    const T = 600 * FPS;
+    let seed = seed0 * 9301 + 49297;
+    const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const normal = () => Math.sqrt(-2 * Math.log(rnd() + 1e-12)) * Math.cos(2 * Math.PI * rnd());
+    const dead = new Array(T).fill(false);
+    for (let t = 0; t < T;) { const alive = Math.round(FPS * (20 + 60 * rnd())); t += alive; const d = Math.round(FPS * (8 + 25 * rnd())); for (let i = t; i < Math.min(T, t + d); i++) dead[i] = true; t += d; }
+    function simulate(drawLen) {
+      // bisection on the start rate so ~19% alive / ~61% dead frames are missing
+      const u = Array.from({ length: T }, rnd), lens = Array.from({ length: T }, drawLen);
+      const cover = (ha, hd) => { const m = new Array(T).fill(false); let end = 0; for (let t = 0; t < T; t++) { if (u[t] < (dead[t] ? hd : ha)) end = Math.max(end, t + lens[t]); m[t] = end > t; } return m; };
+      const rate = (m, want) => { let n = 0, k = 0; for (let t = 0; t < T; t++) if (dead[t] === want) { n++; if (m[t]) k++; } return k / n; };
+      let ha = 1e-3, hd = 1e-3;
+      for (let round = 0; round < 2; round++) {
+        for (const which of ['a', 'd']) {
+          let lo = -8, hi = 0;
+          for (let i = 0; i < 22; i++) { const mid = (lo + hi) / 2, v = 10 ** mid; const m = which === 'a' ? cover(v, hd) : cover(ha, v); const r = rate(m, which === 'd'); if (r < (which === 'a' ? 0.19 : 0.61)) lo = mid; else hi = mid; }
+          if (which === 'a') ha = 10 ** ((lo + hi) / 2); else hd = 10 ** ((lo + hi) / 2);
+        }
+      }
+      return cover(ha, hd);
+    }
+    const oldM = simulate(() => Math.max(1, Math.round(-Math.log(rnd() + 1e-12) * 1.2 * FPS)));
+    const newM = simulate(() => rnd() < 0.11 ? Math.max(1, Math.round(-Math.log(rnd() + 1e-12) * 0.4 * FPS)) : Math.max(1, Math.round(Math.exp(Math.log(med * FPS) + 0.75 * normal()))));
+    const cv = document.getElementById('gapCanvas'); const [ctx, w, h] = setupCanvas(cv); const c = COLORS();
+    ctx.clearRect(0, 0, w, h);
+    const lw = 92, sw = w - lw;
+    const row = (m, y, name) => {
+      label(ctx, name, 0, y + 16, c.muted);
+      ctx.fillStyle = c.sunk; ctx.fillRect(lw, y, sw, 24);
+      ctx.fillStyle = c[2]; for (let t = 0; t < T; t++) if (dead[t]) ctx.fillRect(lw + t / T * sw, y, Math.max(1, sw / T), 24);
+      ctx.fillStyle = c.ink; for (let t = 0; t < T; t += 5) if (m[t]) ctx.fillRect(lw + t / T * sw, y + 8, Math.max(1, 5 * sw / T), 8);
+    };
+    row(oldM, 6, 'old model'); row(newM, 46, 'calibrated');
+    ctx.fillStyle = c.muted; ctx.font = '10.5px "IBM Plex Mono", monospace';
+    for (let s = 0; s <= 600; s += 120) { const x = lw + s / 600 * sw; ctx.fillRect(x, 82, 1, 5); ctx.fillText((s / 60) + ' min', Math.min(x + 2, w - 40), 98); }
+    const gaps = (m) => { const out = []; let s = -1; for (let t = 0; t <= T; t++) { if (t < T && m[t]) { if (s < 0) s = t; } else if (s >= 0) { out.push((t - s) / FPS); s = -1; } } return out.sort((a, b) => a - b); };
+    const q = (arr, p) => arr.length ? arr[Math.floor(p * (arr.length - 1))] : 0;
+    const go = gaps(oldM), gn = gaps(newM);
+    document.getElementById('gapReadout').innerHTML =
+      `<span class="pill">old: <b>${go.length}</b> gaps, median <b>${q(go, .5).toFixed(1)} s</b></span>` +
+      `<span class="pill">calibrated: <b>${gn.length}</b> gaps, median <b>${q(gn, .5).toFixed(1)} s</b>, p90 <b>${q(gn, .9).toFixed(0)} s</b></span>` +
+      `<span class="pill">real hackathon: ~14 gaps per 10 min, median <b>10.7 s</b></span>`;
+  }
+
+  function drawAll() { drawPublic(); drawMetric(); drawViterbi(); drawGaps(); }
+  ['m-shift', 'm-merge', 'm-split', 'm-flicker'].forEach(id => document.getElementById(id).addEventListener('input', drawMetric));
+  ['v-window', 'v-penalty'].forEach(id => document.getElementById(id).addEventListener('input', drawViterbi));
+  ['g-median', 'g-seed'].forEach(id => document.getElementById(id).addEventListener('input', drawGaps));
+  let raf = 0; window.addEventListener('resize', () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(drawAll); });
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawAll);
+  new MutationObserver(drawAll).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
+  drawAll();
+})();
+</script>
+</body>
+</html>
