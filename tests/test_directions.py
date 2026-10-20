@@ -19,7 +19,7 @@ from .toys import HOME, Toy
 
 TODO_1 = pytest.mark.xfail(strict=True, reason="direction 1: possession/restarts.py not built")
 TODO_2 = pytest.mark.xfail(strict=True, reason="direction 2: possession/touches.py not built")
-TODO_3 = pytest.mark.xfail(strict=True, reason="direction 3: possession/gaps.py not built")
+TODO_3 = lambda f: f  # direction 3 built: possession/gaps.py
 
 
 # -- Direction 1: restart detector ---------------------------------------------------------------

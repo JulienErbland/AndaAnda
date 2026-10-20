@@ -204,8 +204,15 @@ from the last-seen to the next-seen point (live passes are plausible, a stoppage
 fastest players' speed during the gap (live gaps have sprinters); and whether the team shapes flip
 mid-gap (an attacking team retreating means it lost the ball). Add these as features. Later, if
 needed, re-detect the ball in the tactical video (largest ceiling, needs the video and a CV model).
-- [ ] specs: live gap kept by one team, dead gap, shape flip = change of possession
+- [x] specs: live gap kept by one team, dead gap, shape flip = change of possession
+      (`possession/gaps.py` built, 3 specs pass)
 - [ ] targets: change_in_ball_gap >= 40%, ball_gap_hold >= 45%, blackout_change >= 30%
+- Result v1 (Oct 20): null. Gap features added to LightGBM: DFL 0.5220 -> 0.5205,
+  ball_gap_hold 23 -> 24%, change_in_ball_gap 25 -> 26%, blackout 14 -> 10%. The context features
+  already carry the same information, so the model was rolled back to M2 and gaps.py is unused.
+- Next for this direction: (a) more training data. Gap hand-overs are rare (423 clips over 7
+  matches), and PFF WC2022 would bring 64 more matches. (b) Ball re-detection from the tactical
+  video, which removes gaps at the source.
 
 Order suggestion: 3 first (the largest share of real frames: ball missing 41%), then 1, then 2.
 Each direction must keep `pytest -m slow` floors green.
