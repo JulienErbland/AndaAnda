@@ -32,6 +32,14 @@ How to read the numbers:
 | Oct 21 | M2 + touches, switch 5 | 0.554 | 0.891 | 0.552 | 4.69 | +0.004 vs switch 10; public drops; not adopted |
 
 Public-window macroF1: base 0.894, touches 0.861 (17 possessions; bench macroF1 went up). Watch it.
+| Oct 21 | M2 + touches + carrier features (61 features), switch 10 | 0.560 | 0.894 | 0.533 | 4.60 | rejected: +0.0095 ± 0.0016 (7/7) on DFL, but only by changing possession more often |
+| Oct 21 | same, switch 17 (real rate back to 4.32) | 0.543 | – | 0.533 | 4.32 | rejected: at equal real-match rate it is no better than M2 + touches (0.547) |
+| Oct 21 | path decoder (player-level), default costs, seed 0 | 0.532 | 0.887 | 0.607 | 4.53 | rejected: −0.015 ± 0.006 vs M2 (1/7); 6 cost variants all −0.013 to −0.022 |
+
+Switch sweep, seed 0 (DFL spellF1 / real rate / public): M2 + touches 10: 0.547 / 4.32 / 0.622;
+12: 0.543 / 4.23; 14: 0.538 / 4.21; 20: 0.529 / 4.16. M2 + carrier 10: 0.556 / 4.60 / 0.533;
+14: 0.552 / 4.48; 17: 0.543 / 4.32; 20: 0.535 / 4.20 / 0.600. Lesson: a DFL gain must be read at the
+real match's change rate, because DFL's labels change possession twice as often.
 
 ## Benchmark of M2 (Oct 20, before the degrader noise fix)
 
@@ -100,6 +108,7 @@ small moves between them are bench changes, not method changes.
 | Oct 20 | Fix: DFL referees were parsed as away players (2 matches) | the nearest "away player" is never the referee |
 | Oct 20 | DFL official events synced (9,961 events) | passes agree with the labels 98%; set pieces 97–100% |
 | Oct 21 | Fix: the degrader position noise is now smooth (frame-to-frame jitter 58–88 cm → 1.2–2.2 cm; real: 0.1–0.9 cm) | velocities are usable; M2 retrained: 0.522 → 0.523 |
+| Oct 21 | Metrica sample games 1–2 added (CSV reader); 10 open matches for the carrier and ball-filling models | M2 still trains and is judged on DFL only (Metrica labels come from events) |
 
 ## Touch detector (direction 2), checked against DFL events
 
@@ -109,3 +118,37 @@ small moves between them are bench changes, not method changes.
 | passer controls just before the pass | 78% | 59% |
 | interception or won tackle: control by the winner | 22% | 16% |
 | interception or won tackle: contact by the winner | 87% | 61% |
+
+## Carrier model (Oct 21), held-out, 10 open matches × 2 noise draws
+
+| frames with a carrier | right player | right team |
+|---|---|---|
+| ball seen: model / nearest to the ball | 98.7% / 98.3% | 98.9% / 98.6% |
+| ball missing: model | **57.7%** | **76.9%** |
+| ball missing: nearest to the last-seen ball (best rule) | 40.0% | 74.1% |
+
+Summed P(someone carries), ball missing: 28% when someone does, 12% live when nobody does, 5% dead.
+
+## Ball filling (Oct 21), held-out, 10 open matches, gap frames with a true ball
+
+Median / p90 error in metres (v2: L1 loss, out-of-fold 80% radius).
+
+| time since lost | model | straight line | stays where last seen |
+|---|---|---|---|
+| 0–1 s | 0.9 / 4.1 | 0.5 / 3.1 | **0.4 / 2.5** |
+| 1–3 s | 1.2 / **8.4** | 1.3 / 10.1 | **0.4** / 10.9 |
+| 3–10 s | 2.7 / **15.2** | 4.5 / 21.2 | **0.5** / 27.9 |
+| over 10 s (58% of gap frames) | **9.6 / 29.9** | 15.3 / 44.5 | 17.8 / 63.2 |
+
+80% radius covers 77% of true errors (v1, in-sample log-error model: 13%). Team of the nearest
+player to the filled ball = possessing team on 50% of live gap frames (straight line: 53%), so
+the filled ball is not a team signal by itself.
+
+## Where this leaves us (Oct 21)
+
+- Best: M2 + touches (DFL 0.550, real rate 4.32, public 0.622). It is the submission.
+- Most potential: evidence about who really plays the ball (touches, carrier, path decoder as a
+  refinement of M2's changes).
+- Main risk: the bench's labels define possession differently (DFL changes it twice as often), so
+  DFL gains must be read at the real match's change rate. Next fix: relabel DFL with a
+  hackathon-style rule matched to the public labels' rate and durations.

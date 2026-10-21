@@ -265,3 +265,54 @@ New order:
 3. Direction 3 (gaps) via more data (PFF) or video, not more features.
 - Optional free change: switch 10 -> 5 (+0.006, wins on 7 of 7 matches, real-match durations
   closer to the public labels).
+
+---
+
+# Carrier model (Oct 21): who has the ball, at player level
+
+Base trained on open data (DFL 7 + Metrica 3); the hackathon match is only a later fine-tuning
+step (self-supervised: visible-ball controls, ball hidden on purpose), never the base.
+- [x] Metrica sample games 1 and 2 (CSV format) in the bench: `python -m bench fetch metrica`
+- [x] `possession/carrier.py`:
+  - labels on CLEAN tracking: frames inside a control episode (touches.py) -> the controlling
+    player; live otherwise -> "flight"; dead -> "out". Mapped onto the degraded slots by
+    position (the degrader repacks players into new slots).
+  - one row per (frame, tracked slot), features computed on DEGRADED tracking: ball distance and
+    relative speed when seen, distance to the last/next seen ball, pressure (opponents near,
+    closing speed), ranks within the frame. Ball-free features carry the gaps.
+  - LightGBM binary "this slot is the carrier"; leave-one-match-out models.
+  - outputs per frame: per-slot P(carrier), P(home carrier), P(away carrier).
+- [x] standalone check, held-out: ball missing, right player 58% (best rule 40%), right team
+      77% (74%); ball seen ~99% for everything.
+- [x] carrier features in M2 (out-of-fold): REJECTED. +0.0095 on DFL (7/7) at switch 10 but
+      real rate 4.60 and public 0.533; at switch 17 (rate 4.32) DFL 0.543 < 0.547. The gain was
+      DFL-style extra changes.
+- [ ] later: hackathon fine-tuning (continued boosting).
+
+# Path decoder (Oct 21): follow the ball from player to player (`possession/path.py`)
+
+State per frame: carrier slot (top 3 by carrier probability + last frame's), flight after home,
+flight after away, out. A possession change is a receive by the other team (or a tackle, or an
+unseen hand-over at a high cost); flights never change team, so deflections change nothing;
+identity breaks pass the ball to the continuing slot for free. Evidence: carrier per-slot
+probabilities + M2's H/A/D, so nothing M2 knows is lost. Switch/stop/restart stay M2's.
+- [x] decoder + 4 specs (deflection, interception at the control frame, unseen hand-over,
+      break vs tackle rules), `tests/test_path.py`
+- [x] held-out comparison: REJECTED for now. −0.015 ± 0.006 vs M2 (1/7), all 6 variants −0.013
+      to −0.022, and MORE changes on the real match (4.4-4.6). Likely double counting: M2's
+      probabilities already hold touch/proximity evidence, carrier adds the same again, and
+      flight -> other team is too cheap in gaps. Next try: use it only to move each of M2's
+      own changes onto the control frame (no new changes).
+
+# Ball filling (Oct 21): where the ball is during gaps (`possession/ballfill.py`)
+
+Free supervision: the degrader's gaps on clean open data (DFL 7 + Metrica 3), true ball kept.
+LightGBM predicts the correction to the straight line between sightings (x, y) from the
+players (carrier-weighted position, nearest players, convergence of nearby players' runs,
+team centroids), plus a model of its own error radius. Leave-one-match-out.
+- [x] model, `finetune(match)` (hide visible hackathon ball in gap-shaped spans, continued
+      boosting; run locally as the last step), 1 spec (`tests/test_ballfill.py`)
+- [x] held-out check: long gaps (>10 s) 9.6 m median vs 15.3 (line) / 17.8 (last seen); short
+      gaps still worse than "stays where last seen" (0.9 vs 0.4 m in the first second). v2 radius
+      honest (77% inside the 80% radius). Not a team signal by itself (nearest player 50%).
+- [ ] then: touches and carrier on the filled ball where the radius is small

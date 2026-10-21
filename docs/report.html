@@ -136,7 +136,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <a href="#challenges">2 · Main challenges</a>
   <a href="#overview">3 · The pipeline today</a>
   <a href="#failures">4 · Where it still fails</a>
-  <a href="#touches">5 · Current work: touches</a>
+  <a href="#touches">5 · Current work</a>
   <a href="#next">6 · Next steps</a>
   <span class="label" style="margin-top:14px">Pipeline in detail</span>
   <a href="#problem">7 · What we predict</a>
@@ -193,8 +193,14 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
     <li><strong>The main lesson.</strong> Perfect tracking would only bring M2 to 0.58. Most lost
     points do not come from bad tracking. They come from deciding <em>who</em> has the ball at a
     hand-over: 86% of missed possessions start with one, most with the ball in view.</li>
-    <li><strong>In progress.</strong> A touch detector (direction 2) that tells a real control from
+    <li><strong>Latest gain.</strong> A touch detector (direction 2) that tells a real control from
     a ball flying past a player. It is now in the model: +0.028 spellF1, better on all 7 bench matches, and interceptions recognised rose from 30% to 40%.</li>
+    <li><strong>Tried since, not adopted.</strong> A player-level carrier model, a decoder that
+    follows the ball from player to player, and a model that fills in the ball during gaps. The
+    pieces work on their own, but none improved possession yet (§5).</li>
+    <li><strong>The main risk now is the yardstick, not the tracking.</strong> The bench's labels
+    (DFL) change possession twice as often as the hackathon's, so the bench rewards changing too
+    often. Fixing that comes first (§6).</li>
     <li><strong>Submission.</strong> One command rebuilds <code>AndaAnda.csv</code> from the raw
     bundle, byte-identical across runs, validated by the organisers' script. Deadline Nov 17, 2026.</li>
   </ul>
@@ -412,6 +418,37 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   plausible. One thing to watch: macroF1 on the public 5 minutes dropped by 0.03. That window holds
   17 possessions, and the bench macroF1 rose, so it is not a reason to reject, but it is the first
   thing to look at if the full-match score disappoints.</p>
+
+  <h3>Since then: three new pieces, none adopted yet</h3>
+  <p>All three are built from open data only. The hackathon match is kept for a last
+  fine-tuning step, never as the base.</p>
+  <div class="cols">
+    <div class="card"><h4>Carrier model</h4><p>For every tracked player, the probability that he has
+    the ball (<code>possession/carrier.py</code>). Its labels come from clean tracking, so they don't
+    depend on either dataset's definition of possession. With the ball missing it finds the right player 58%
+    of the time (best simple rule: 40%) and the right team 77% (74%).</p></div>
+    <div class="card"><h4>Path decoder</h4><p>Follows the ball from player to player
+    (<code>possession/path.py</code>): possession changes only when the other team receives the ball;
+    a ball in flight keeps its last team, so deflections change nothing. Built and tested, but on
+    the bench it loses to M2 by 0.015 (1 of 7 matches), and it adds hand-overs on the real match.</p></div>
+    <div class="card"><h4>Ball filling</h4><p>Where the ball is during a gap, with an error radius
+    (<code>possession/ballfill.py</code>). In gaps over 10 s it is off by 9.6 m against 15–18 m for
+    simple rules, and its 80% radius covers 77% of true errors. On its own, though, the nearest
+    player to the filled ball is no guide to the team (50%).</p></div>
+  </div>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Tried in M2</th><th class="num">DFL spellF1</th><th class="num">real rate / live min</th><th class="num">public</th><th>Decision</th></tr></thead>
+    <tbody>
+      <tr class="best"><td>M2 + touches (current)</td><td class="num">0.547</td><td class="num">4.32</td><td class="num">0.622</td><td>kept</td></tr>
+      <tr><td>+ carrier features, switch penalty 10</td><td class="num">0.556</td><td class="num">4.60</td><td class="num">0.533</td><td rowspan="2">rejected: the gain came only from changing possession more often</td></tr>
+      <tr><td>+ carrier features, switch penalty 17 (same real rate)</td><td class="num">0.543</td><td class="num">4.32</td><td class="num">0.533</td></tr>
+      <tr><td>path decoder instead of the H/A/D decoder</td><td class="num">0.532</td><td class="num">4.53</td><td class="num">0.607</td><td>rejected for now: counts the same evidence twice</td></tr>
+    </tbody>
+  </table></div>
+  <div class="why"><b>What this taught us</b>The carrier features won on the bench (+0.0095, 7 of 7
+  matches) only by making the model change possession more often, which DFL's labels reward. Read
+  at the real match's change rate, the gain disappears. Every bench gain has to be read that way
+  until the bench uses a hackathon-style definition of possession.</div>
 </section>
 
 <!-- 6 ---------------------------------------------------------------------------------- -->
@@ -419,17 +456,24 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <span class="eyebrow">6 · Plan</span>
   <h2>Next steps</h2>
   <ol>
-    <li><strong>Who touched it last before a stoppage</strong> (direction 1, re-aimed): the
-    possession just before the ball goes out, often a shot or a cross, is worth up to +0.11. The
-    touch detections give the last toucher directly.</li>
-    <li><strong>Refresh the benchmark</strong> on the corrected bench with the touch model: oracles and
-    failure anatomy, to re-rank what is left.</li>
-    <li><strong>Short possessions and hand-over timing</strong>: move each predicted change to the frame
-    of the control that caused it (the second half of direction 2).</li>
-    <li><strong>Switch penalty 5</strong>: still +0.006 on 7 of 7 with the base model; to re-check with
-    touches (the public window drops to 0.552 with it, within its noise).</li>
-    <li><strong>More gap data</strong>: PFF World Cup 2022 (64 matches, needs a request form) or
-    re-detecting the ball in the video, for the +0.17 ball-gap ceiling.</li>
+    <li><strong>Fix the yardstick.</strong> The hackathon labels are computed by a rule from
+    corrected tracking, and DFL gives clean tracking. So relabel DFL with a hackathon-style rule:
+    possession changes only on a real control by the other team, and a loose ball stays with the
+    last team. Tune it until the relabelled matches show the public labels' statistics: about 4.3
+    possessions per live minute, median 7.6 s, 10% under 2.2 s. Then train and judge on those labels.</li>
+    <li><strong>Re-judge on that yardstick</strong> M2 + touches, the carrier features, and the
+    path decoder used narrowly: move each of M2's own changes onto the frame of the control, adding
+    no changes of its own.</li>
+    <li><strong>Varied degradation in training</strong>: several noise draws, with gap length,
+    blackouts and noise drawn around the calibrated values, so the real tracker falls inside what the
+    models have seen. Also measure ball-speed spikes on the real tracking, to spot false ball
+    detections the degrader never simulates.</li>
+    <li><strong>Who touched it last before a stoppage</strong> (up to +0.11), from the touch detections.</li>
+    <li><strong>Ball detection in the tactical video</strong>, run locally: the only way to add
+    information inside the gaps (+0.17 ceiling). The biggest effort; also PFF World Cup 2022 data for
+    more gap examples.</li>
+    <li><strong>Fine-tuning on the hackathon match</strong> as the last step: carrier and ball
+    filling (<code>ballfill.finetune</code>, written, not run).</li>
     <li><strong>Tech doc</strong> <code>AndaAnda.md</code> for the submission, built from this report.</li>
   </ol>
 </section>
@@ -847,7 +891,9 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
       <tr><td>Ball-gap features (direction 3)</td><td>Describe each ball gap as a whole: implied ball speed from last to next sighting, sprinting during the gap, team shapes flipping</td><td class="num">0.5220 → 0.5205</td><td>The context features already carry it. What gaps lack is training examples, not features.</td></tr>
       <tr><td>M3 semi-Markov</td><td>Duration priors, gap-aware evidence (§16)</td><td class="num">≤ 0.517</td><td>Learned probabilities already imply the durations.</td></tr>
       <tr><td>Switch penalty 20</td><td>Fewer changes</td><td class="num">−0.017</td><td>Merges short possessions.</td></tr>
-      <tr><td>Switch penalty 5</td><td>More changes</td><td class="num">+0.006, 7/7 matches</td><td>Real but tiny; pending a decision.</td></tr>
+      <tr><td>Switch penalty 5</td><td>More changes</td><td class="num">+0.004 (with touches)</td><td>Tiny, and the public window drops to 0.552.</td></tr>
+      <tr><td>Carrier features in M2</td><td>Who carries the ball, from a player-level model (§5)</td><td class="num">+0.0095 at switch 10; −0.004 at the same real rate</td><td>The gain was only more frequent changes.</td></tr>
+      <tr><td>Path decoder</td><td>Follow the ball player to player (§5)</td><td class="num">−0.015 ± 0.006</td><td>Counts M2's evidence and the carrier's twice; adds hand-overs.</td></tr>
     </tbody>
   </table></div>
 </section>
@@ -889,7 +935,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
     <thead><tr><th>Path</th><th>Role</th></tr></thead>
     <tbody>
       <tr><td><code>bench/match.py</code></td><td>Common format, <code>without_labels()</code>, graded mask</td></tr>
-      <tr><td><code>bench/dfl.py</code>, <code>bench/epts.py</code></td><td>Readers: DFL XML (streaming), FIFA/EPTS for the hackathon and Metrica</td></tr>
+      <tr><td><code>bench/dfl.py</code>, <code>bench/epts.py</code></td><td>Readers: DFL XML (streaming), FIFA/EPTS for the hackathon and Metrica game 3, CSV for Metrica games 1–2</td></tr>
       <tr><td><code>bench/degrade.py</code></td><td>Calibrated degrader (profiles: hackathon, ball-only, clean)</td></tr>
       <tr><td><code>bench/evaluate.py</code></td><td>Official scorer + diagnostics (miss causes, lag, context errors, worst stretches)</td></tr>
       <tr><td><code>bench/scenarios.py</code>, <code>bench/preview.py</code></td><td>13 edge-case scenarios, MP4 replays</td></tr>
@@ -899,9 +945,12 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
       <tr><td><code>possession/hsmm.py</code></td><td>M3 semi-Markov decoder</td></tr>
       <tr><td><code>possession/touches.py</code></td><td>Direction 2: control / deflection / contact detector and its features</td></tr>
       <tr><td><code>possession/gaps.py</code></td><td>Direction 3 ball-gap features (evaluated, unused)</td></tr>
+      <tr><td><code>possession/carrier.py</code></td><td>Player-level carrier model (open data, leave-one-match-out)</td></tr>
+      <tr><td><code>possession/path.py</code></td><td>Path decoder: ball from player to player (evaluated, not adopted)</td></tr>
+      <tr><td><code>possession/ballfill.py</code></td><td>Ball filling in gaps with an error radius, plus hackathon fine-tuning</td></tr>
       <tr><td><code>bench/dfl_events.py</code></td><td>DFL official events synced to the tracking frames</td></tr>
       <tr><td><code>possession/submit.py</code></td><td>One command to a validated submission</td></tr>
-      <tr><td><code>scripts/</code></td><td>Tuning (<code>tune_hmm</code>, <code>tune_learned</code>), M3 ablation, <code>benchmark</code>, <code>validate_touches</code>, scenario page</td></tr>
+      <tr><td><code>scripts/</code></td><td>Tuning (<code>tune_hmm</code>, <code>tune_learned</code>), M3 ablation, <code>benchmark</code>, <code>validate_touches</code>, <code>eval_carrier</code>, <code>eval_path</code>, <code>eval_ballfill</code>, scenario page</td></tr>
     </tbody>
   </table></div>
 </section>

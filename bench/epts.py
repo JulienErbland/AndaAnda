@@ -1,4 +1,4 @@
-"""Metrica FIFA/EPTS tracking: the hackathon's own format, and Metrica Sample Game 3.
+"""Metrica FIFA/EPTS tracking: the hackathon's own format, and Metrica Sample Games 1-3.
 
 One reader for both, driven by the metadata's DataFormatSpecifications. Each spec covers a frame
 range and lists, in line order, which player each ';' group is. Sample Game 3 has several specs
@@ -24,6 +24,9 @@ METRICA_URL = ("https://raw.githubusercontent.com/metrica-sports/sample-data/mas
                "Sample_Game_3/Sample_Game_3_{}")
 METRICA_DIR = os.path.join(EXTERNAL_DIR, "metrica")
 METRICA_PATH = os.path.join(METRICA_DIR, "metrica-game3.npz")
+METRICA_CSV_URL = ("https://raw.githubusercontent.com/metrica-sports/sample-data/master/data/"
+                   "Sample_Game_{0}/Sample_Game_{0}_{1}")
+METRICA_PITCH = (105.0, 68.0)  # games 1-2 ship no metadata; game 3's says 105 x 68
 HACKATHON_PATH = os.path.join(ROOT, "data", "hackathon-BAR-ATH.npz")  # data/ is gitignored
 
 
@@ -173,6 +176,59 @@ def fetch_metrica():
                   slot_team=slot_team, halves=halves, labels=labels)
     match.save(METRICA_PATH)
     print("metrica: {} frames, {} slots -> {}".format(len(ball), len(slot_team), METRICA_PATH))
+
+
+def read_metrica_csv(home_csv, away_csv):
+    """(ball, players, slot_team) from the Sample Game 1-2 CSV pair: 3 header lines, then
+    Period, Frame, Time, x/y per player (one fixed column pair per player, substitutes NaN while
+    off), Ball x/y. Same 0-1 coordinates as the EPTS files."""
+    import pandas as pd
+    halves_xy = []
+    for path in (home_csv, away_csv):
+        a = pd.read_csv(path, header=None, skiprows=3).to_numpy(np.float32)
+        halves_xy.append(a)
+    home, away = halves_xy
+    if len(home) != len(away) or not np.array_equal(home[:, 1], away[:, 1]):
+        raise ValueError("home and away tracking files are not frame-aligned")
+    ball = home[:, -2:]
+    teams = [h[:, 3:-2].reshape(len(h), -1, 2) for h in (home, away)]
+    xy = np.concatenate(teams, axis=1)
+    slot_team = np.repeat([0, 1], [teams[0].shape[1], teams[1].shape[1]]).astype(np.int8)
+    players = np.concatenate([xy, derive_speed(xy, METRICA_PITCH)[..., None]], axis=-1)
+    ball = np.concatenate([ball, derive_speed(ball, METRICA_PITCH)[:, None]], axis=-1)
+    return ball, players, slot_team
+
+
+def csv_events(events_csv):
+    """Sample Game 1-2 events in the shape metrica_labels() reads from the game 3 JSON."""
+    import pandas as pd
+    out = []
+    for r in pd.read_csv(events_csv).itertuples(index=False):
+        out.append({"type": {"name": r.Type}, "team": {"id": r.Team}, "period": int(r.Period),
+                    "start": {"frame": int(r[4])}, "end": {"frame": int(r[6])},
+                    "subtypes": None if pd.isna(r.Subtype) else r.Subtype,
+                    "from": r.From, "to": None if pd.isna(r.To) else r.To})
+    return out
+
+
+def fetch_metrica_csv(game):
+    raw = os.path.join(METRICA_DIR, "raw")
+    os.makedirs(raw, exist_ok=True)
+    paths = {}
+    for name in ("RawTrackingData_Home_Team.csv", "RawTrackingData_Away_Team.csv",
+                 "RawEventsData.csv"):
+        paths[name] = os.path.join(raw, "Sample_Game_{}_{}".format(game, name))
+        if not os.path.isfile(paths[name]):
+            print("metrica: downloading game {} {} ...".format(game, name))
+            urllib.request.urlretrieve(METRICA_CSV_URL.format(game, name), paths[name])
+    ball, players, slot_team = read_metrica_csv(paths["RawTrackingData_Home_Team.csv"],
+                                                paths["RawTrackingData_Away_Team.csv"])
+    labels, halves = metrica_labels(csv_events(paths["RawEventsData.csv"]), len(ball), "Home")
+    name = "metrica-game{}".format(game)
+    out = os.path.join(METRICA_DIR, name + ".npz")
+    Match(name=name, pitch=METRICA_PITCH, ball=ball, players=players, slot_team=slot_team,
+          halves=halves, labels=labels).save(out)
+    print("metrica: {} frames, {} slots -> {}".format(len(ball), len(slot_team), out))
 
 
 # -- the hackathon match (gated data: run locally) ---------------------------------------------

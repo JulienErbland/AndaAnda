@@ -28,7 +28,7 @@ from .match import D, Match, graded_mask
 def match_paths(selectors):
     groups = {
         "dfl": sorted(glob.glob(os.path.join(EXTERNAL_DIR, "dfl", "*.npz"))),
-        "metrica": [epts.METRICA_PATH] if os.path.isfile(epts.METRICA_PATH) else [],
+        "metrica": sorted(glob.glob(os.path.join(epts.METRICA_DIR, "metrica-game*.npz"))),
         "hackathon": [epts.HACKATHON_PATH] if os.path.isfile(epts.HACKATHON_PATH) else [],
     }
     groups["all"] = groups["dfl"] + groups["metrica"]  # hackathon only when asked for by name
@@ -68,6 +68,8 @@ def cmd_fetch(args):
     if args.what in ("dfl", "all"):
         dfl.fetch(args.ids or None)
     if args.what in ("metrica", "all"):
+        for game in (1, 2):
+            epts.fetch_metrica_csv(game)
         epts.fetch_metrica()
     if args.what in ("dfl-events", "all"):
         from . import dfl_events

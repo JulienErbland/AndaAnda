@@ -54,8 +54,9 @@ def _velocity(xy):
     return v
 
 
-def _frame_state(match):
-    """Per frame: team controlling (H/A/-1) and team of the nearest player within NEAR_M."""
+def _frame_state(match, with_slot=False):
+    """Per frame: team controlling (H/A/-1) and team of the nearest player within NEAR_M
+    (+ the controlling slot, -1 if none, when with_slot)."""
     m = np.asarray(match.pitch, dtype=np.float64)
     ball = match.ball[:, :2].astype(np.float64) * m
     pl = match.players[..., :2].astype(np.float64) * m
@@ -73,6 +74,8 @@ def _frame_state(match):
     nwho = np.argmin(d_near, axis=1)
     nhas = np.isfinite(d_near[np.arange(len(nwho)), nwho])
     near_team = np.where(nhas, match.slot_team[nwho], -1)
+    if with_slot:
+        return control_team, near_team, vb, np.where(has, who, -1)
     return control_team, near_team, vb
 
 

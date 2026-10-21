@@ -17,4 +17,6 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 models/lomo/
+models/carrier/
+models/ballfill/
 models_exp/

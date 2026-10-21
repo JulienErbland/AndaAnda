@@ -199,3 +199,24 @@ def test_degraded_positions_are_smooth_like_the_real_tracking():
         offset = np.sqrt((added ** 2).sum(-1))
         assert np.nanmedian(jitter) < 0.01                       # < 1 cm frame to frame
         assert 0.1 < np.nanmedian(offset) < 0.5                  # but a real position error
+
+
+def test_metrica_csv_reader_and_events(tmp_path):
+    # 2 players per team, 3 frames; player 2 of the away team is a substitute (NaN)
+    head = ",,,{0},,{0},,,\n,,,1,,2,,,\nPeriod,Frame,Time [s],P1,,P2,,Ball,\n"
+    rows = ["1,{},{:.2f},0.1,0.5,0.2,0.5,0.5,0.5".format(f, f / 25) for f in (1, 2, 3)]
+    away_rows = ["1,{},{:.2f},0.9,0.5,NaN,NaN,0.5,0.5".format(f, f / 25) for f in (1, 2, 3)]
+    (tmp_path / "h.csv").write_text(head.format("Home") + "\n".join(rows) + "\n")
+    (tmp_path / "a.csv").write_text(head.format("Away") + "\n".join(away_rows) + "\n")
+    ball, players, slot_team = epts.read_metrica_csv(tmp_path / "h.csv", tmp_path / "a.csv")
+    assert ball.shape == (3, 3) and players.shape == (3, 4, 3)
+    assert slot_team.tolist() == [0, 0, 1, 1]
+    assert players[0, 2, 0] == np.float32(0.9) and np.isnan(players[:, 3, 0]).all()
+    (tmp_path / "e.csv").write_text(
+        "Team,Type,Subtype,Period,Start Frame,Start Time [s],End Frame,End Time [s],From,To,"
+        "Start X,Start Y,End X,End Y\n"
+        "Away,SET PIECE,KICK OFF,1,1,0.04,0,0,P1,,NaN,NaN,NaN,NaN\n"
+        "Away,PASS,,1,1,0.04,3,0.12,P1,P2,0.5,0.5,0.6,0.5\n")
+    ev = epts.csv_events(tmp_path / "e.csv")
+    assert [e["type"]["name"] for e in ev] == ["SET PIECE", "PASS"]
+    assert ev[1]["start"]["frame"] == 1 and ev[1]["end"]["frame"] == 3 and ev[1]["to"] == "P2"
