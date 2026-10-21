@@ -9,6 +9,7 @@
   "dfl-DFL-MAT-J03WR9"
  ],
  "profile": "hackathon",
+ "feature_set": "touch",
  "params": {
   "objective": "multiclass",
   "num_class": 3,

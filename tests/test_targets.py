@@ -20,13 +20,14 @@ pytestmark = pytest.mark.slow
 METHOD = "learned"
 
 FLOORS = {
-    "spell_f1_mean": 0.51,          # 0.522
-    "macro_f1": 0.87,               # 0.883
+    "spell_f1_mean": 0.53,          # 0.550 (M2 + touches, Oct 21)
+    "macro_f1": 0.87,               # 0.890
     "pass_past_opponents": 0.92,    # 95%
     "long_stoppage": 0.96,          # 99%
     "dead_ball_visible": 0.88,      # 93%
     "duel_flurry": 0.70,            # 74%
-    "slow_play": 0.74,              # 79%
+    "slow_play": 0.74,              # 83%
+    "interception": 0.37,           # 40%: direction 2 target reached Oct 21
 }
 
 TARGETS = [
@@ -35,8 +36,7 @@ TARGETS = [
     ("restart_other", 0.70, 1),     # 55%
     ("kickoff", 0.50, 1),           # 12% (8 clips)
     # direction 2: touch detector
-    ("interception", 0.40, 2),      # 28%
-    ("short_spell", 0.15, 2),       # 4%
+    ("short_spell", 0.15, 2),       # 8%
     # direction 3: ball-gap reasoning
     ("change_in_ball_gap", 0.40, 3),  # 25%
     ("ball_gap_hold", 0.45, 3),       # 23%

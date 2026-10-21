@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>AndaAnda Pipeline</title>
+<title>AndaAnda Report</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:ital,wght@0,400;0,600;1,400&display=swap">
 <style>
 :root {
@@ -112,6 +112,13 @@ canvas { width: 100%; display: block; border-radius: 3px; }
 .card p { font-size: 0.92rem; }
 .status { font: 600 0.68rem var(--mono); letter-spacing: 0.08em; text-transform: uppercase; }
 .status.done { color: var(--good); } .status.wip { color: var(--warn); }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 12px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 12px 16px; display: grid; gap: 2px; }
+.stat .v { font: 700 2.1rem/1.05 var(--display); font-variant-numeric: tabular-nums; }
+.stat .k { font: 600 0.68rem var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.stat .d { font-size: 0.84rem; color: var(--muted); }
+.part { font: 600 0.78rem var(--mono); letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted);
+  border-top: 1px solid var(--line); padding-top: 18px; }
 hr { border: 0; border-top: 1px solid var(--line); margin: 0; }
 a { color: var(--pitch); }
 a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-offset: 2px; }
@@ -124,30 +131,40 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 <body>
 <div class="layout">
 <nav class="toc" aria-label="Contents">
-  <span class="label">Contents</span>
-  <a href="#overview">1 · The pipeline at a glance</a>
-  <a href="#problem">2 · What we predict</a>
-  <a href="#metric">3 · How it is scored</a>
-  <a href="#data">4 · The data</a>
-  <a href="#bench">5 · The test bench</a>
-  <a href="#degrader">6 · The degrader</a>
-  <a href="#diagnostics">7 · Diagnostics &amp; scenarios</a>
-  <a href="#baseline">8 · Baseline: smooth50</a>
-  <a href="#hmm">9 · M1: evidence + Viterbi</a>
-  <a href="#learned">10 · M2: learned evidence</a>
-  <a href="#hsmm">11 · M3: semi-Markov</a>
-  <a href="#validation">12 · Validation discipline</a>
-  <a href="#submission">13 · Submission &amp; privacy</a>
-  <a href="#map">14 · Code map</a>
+  <span class="label">Report</span>
+  <a href="#summary">1 · Summary</a>
+  <a href="#challenges">2 · Main challenges</a>
+  <a href="#overview">3 · The pipeline today</a>
+  <a href="#failures">4 · Where it still fails</a>
+  <a href="#touches">5 · Current work: touches</a>
+  <a href="#next">6 · Next steps</a>
+  <span class="label" style="margin-top:14px">Pipeline in detail</span>
+  <a href="#problem">7 · What we predict</a>
+  <a href="#metric">8 · How it is scored</a>
+  <a href="#data">9 · The data</a>
+  <a href="#bench">10 · The test bench</a>
+  <a href="#degrader">11 · The degrader</a>
+  <a href="#diagnostics">12 · Diagnostics &amp; scenarios</a>
+  <a href="#baseline">13 · Baseline: smooth50</a>
+  <a href="#hmm">14 · M1: evidence + Viterbi</a>
+  <a href="#learned">15 · M2: learned evidence</a>
+  <a href="#hsmm">16 · M3: semi-Markov</a>
+  <a href="#rejected">17 · Other experiments</a>
+  <a href="#validation">18 · Validation discipline</a>
+  <a href="#submission">19 · Submission &amp; privacy</a>
+  <a href="#map">20 · Code map</a>
 </nav>
 
 <main>
 <header style="display:grid;gap:14px">
   <span class="eyebrow">AndaAnda · More than a Hack 2027 · Phase 1</span>
-  <h1>How the possession pipeline works</h1>
+  <h1>Ball possession from automatic tracking: project report</h1>
   <p class="kicker">From automatic tracking of FC Barcelona vs Athletic Club to one label per frame:
-  who has the ball, or whether it is dead. This page explains every stage, the theory behind each
-  tool, why we chose it, and what it measured on held-out matches.</p>
+  who has the ball, or whether it is dead. Part one is the report: the main challenges, where the
+  pipeline stands, where it still fails and what comes next. Part two explains every stage in
+  depth: the theory behind each tool, why we chose it, and what it measured on held-out matches.
+  Every number is tracked in <a href="results.md"><code>docs/results.md</code></a>.</p>
+  <p class="muted mono" style="font-size:0.8rem">Status as of <!--DATE-->Oct 21, 2026<!--/DATE--></p>
   <div class="legend" aria-label="Label colours">
     <span><i style="background:var(--home)"></i>H: home (Barcelona) in possession</span>
     <span><i style="background:var(--away)"></i>A: away (Athletic) in possession</span>
@@ -156,9 +173,69 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 </header>
 
 <!-- 1 ---------------------------------------------------------------------------------- -->
+<section id="summary">
+  <span class="eyebrow">1 · Summary</span>
+  <h2>Where we stand</h2>
+  <div class="stats">
+    <div class="stat"><span class="k">Best method</span><span class="v">M2</span><span class="d">LightGBM evidence + Viterbi decoder</span></div>
+    <div class="stat"><span class="k">DFL held-out spellF1</span><span class="v">0.550</span><span class="d">7 matches × 3 noise draws; baseline 0.25</span></div>
+    <div class="stat"><span class="k">Public window spellF1</span><span class="v">0.622</span><span class="d">17 possessions: a sanity check, not a target</span></div>
+    <div class="stat"><span class="k">Real possessions / live min</span><span class="v">4.32</span><span class="d">public labels: 4.25</span></div>
+  </div>
+  <ul>
+    <li><strong>The method.</strong> A gradient-boosted model reads 42 context features (team shape,
+    tempo, ball memory, who was near the ball) and gives, for every frame, the probability of
+    home, away and dead ball. A Viterbi decoder then turns those into possessions, paying a penalty
+    for each change, so that flicker never becomes a possession.</li>
+    <li><strong>The progress.</strong> The organisers' baseline scores 0.25 on our bench. A hand-built
+    decoder (M1) gets 0.35, the learned evidence (M2) 0.52. Two decoder alternatives (M3) and a set
+    of ball-gap features were tried and did not beat M2; they are documented and kept out.</li>
+    <li><strong>The main lesson.</strong> Perfect tracking would only bring M2 to 0.58. Most lost
+    points do not come from bad tracking. They come from deciding <em>who</em> has the ball at a
+    hand-over: 86% of missed possessions start with one, most with the ball in view.</li>
+    <li><strong>In progress.</strong> A touch detector (direction 2) that tells a real control from
+    a ball flying past a player. It is now in the model: +0.028 spellF1, better on all 7 bench matches, and interceptions recognised rose from 30% to 40%.</li>
+    <li><strong>Submission.</strong> One command rebuilds <code>AndaAnda.csv</code> from the raw
+    bundle, byte-identical across runs, validated by the organisers' script. Deadline Nov 17, 2026.</li>
+  </ul>
+</section>
+
+<!-- 2 ---------------------------------------------------------------------------------- -->
+<section id="challenges">
+  <span class="eyebrow">2 · The problem</span>
+  <h2>Main challenges</h2>
+  <p>The task sounds simple: per frame, who has the ball. Seven things make it hard. Each one shaped
+  a part of the pipeline.</p>
+  <div class="cols">
+    <div class="card"><h4>1 · The ball is often missing</h4><p>Missing on 40.7% of graded frames, and
+    in long gaps (median 10.7 s, up to 105 s), often during tracker blackouts that also lose the
+    players. A rule that needs the ball says nothing for 10–30 s at a time.
+    <span class="muted">→ ball-free context features (§15).</span></p></div>
+    <div class="card"><h4>2 · Players have no identity</h4><p>46 anonymous slots for 22 players, with a
+    team but no ID. Slots fragment (11.5 tracklets per minute) and swap. Nothing can follow "the
+    player on the ball" for long. <span class="muted">→ team-level features only.</span></p></div>
+    <div class="card"><h4>3 · Possession is a rule, not a sensor</h4><p>A loose ball stays with the last
+    team; touches, deflections and duels without control do not change possession. "Nearest player"
+    is wrong exactly there. <span class="muted">→ touch detector (§5).</span></p></div>
+    <div class="card"><h4>4 · The metric punishes fragmentation</h4><p>spellF1 matches whole
+    possessions by overlap. A 3-frame flicker cuts a possession in two and adds a false one; a missed
+    0.8 s possession merges three into one. <span class="muted">→ change penalties in a decoder (§14).</span></p></div>
+    <div class="card"><h4>5 · Almost no labels for this match</h4><p>Only 5 public minutes (17
+    possessions): one miss moves the score by ~6 points, and it ranks the organisers' own
+    baselines in the wrong order. <span class="muted">→ a test bench on 7 public labelled matches (§10).</span></p></div>
+    <div class="card"><h4>6 · The public data defines possession differently</h4><p>Our training
+    labels (DFL) change possession about twice as often as the hackathon's: 8.4 against 4.3 per live
+    minute. <span class="muted">→ the change rate is set on the real match's possession rate, never fitted to DFL.</span></p></div>
+    <div class="card"><h4>7 · We may not look at the data</h4><p>The terms forbid giving the match data
+    to a cloud LLM. Code is written from the format docs; only aggregates come back.
+    <span class="muted">→ a degrader that makes public data look like the real tracking (§11).</span></p></div>
+  </div>
+</section>
+
+<!-- 3 ---------------------------------------------------------------------------------- -->
 <section id="overview">
-  <span class="eyebrow">1 · Overview</span>
-  <h2>The pipeline at a glance</h2>
+  <span class="eyebrow">3 · Current state</span>
+  <h2>The pipeline today</h2>
   <p>Two loops share the same code. The <strong>bench loop</strong> builds and judges methods on
   public matches whose answer we know, after making their tracking look as bad as the hackathon's.
   The <strong>submission loop</strong> runs the chosen method once on the real match.</p>
@@ -232,15 +309,135 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
     <tbody>
       <tr><td><code>smooth50</code></td><td>Nearest player to the ball, then a 4 s majority vote (organisers' baseline)</td><td class="num">0.247</td><td class="num">0.326</td></tr>
       <tr><td><code>hmm</code> (M1)</td><td>Hand-built evidence, Viterbi decoding with change penalties</td><td class="num">0.352</td><td class="num">0.413</td></tr>
-      <tr class="best"><td><code>learned</code> (M2)</td><td>LightGBM probabilities from 42 context features, same decoder</td><td class="num">0.522</td><td class="num">0.622</td></tr>
+      <tr><td><code>learned</code> (M2, Oct 20)</td><td>LightGBM probabilities from 42 context features, same decoder</td><td class="num">0.522</td><td class="num">0.622</td></tr>
       <tr><td><code>hsmm</code> (M3)</td><td>Semi-Markov decoder: duration priors, gap-aware evidence</td><td class="num">0.463–0.517 (not adopted)</td><td class="num">0.622</td></tr>
+      <tr class="best"><td><code>learned</code> + touches (current)</td><td>M2 plus 10 touch-detector features (§5)</td><td class="num">0.550</td><td class="num">0.622</td></tr>
     </tbody>
   </table></div>
 </section>
 
+
+<!-- 4 ---------------------------------------------------------------------------------- -->
+<section id="failures">
+  <span class="eyebrow">4 · Diagnosis</span>
+  <h2>Where it still fails</h2>
+  <p>The benchmark (<code>scripts/benchmark.py</code>, full tables in <code>docs/benchmark.md</code>)
+  asks two questions: which errors cost points, and how much each perfect fix would be worth. An
+  <strong>oracle</strong> replaces M2's output by the truth for one kind of error only; the gain is
+  the ceiling of that direction.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Perfect fix of…</th><th class="num">spellF1</th><th class="num">gain</th><th>Reading</th></tr></thead>
+    <tbody>
+      <tr><td>team, on frames both call live</td><td class="num">0.909</td><td class="num"><strong>+0.39</strong></td><td>Who has the ball is the dominant loss</td></tr>
+      <tr><td>possessions shorter than 2 s</td><td class="num">0.755</td><td class="num">+0.24</td><td>Inflated by DFL's definition (many more short ones)</td></tr>
+      <tr><td>hand-overs (±1 s around each change)</td><td class="num">0.699</td><td class="num">+0.18</td><td>The moment of the change</td></tr>
+      <tr><td>frames with the ball missing</td><td class="num">0.693</td><td class="num">+0.17</td><td>Gaps matter, but second</td></tr>
+      <tr><td>stoppage starts (±2 s around live → dead)</td><td class="num">0.632</td><td class="num">+0.11</td><td>Who had the last touch before it went out</td></tr>
+      <tr><td>restarts (±2 s around dead → live)</td><td class="num">0.562</td><td class="num">+0.04</td><td>Low ceiling</td></tr>
+      <tr><td>ball always tracked</td><td class="num">0.558</td><td class="num">+0.04</td><td>Re-detecting the ball alone is not enough</td></tr>
+      <tr><td>dead / alive call</td><td class="num">0.540</td><td class="num">+0.02</td><td>Already good</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><strong>Short possessions are the misses.</strong> Under 1 s: 2% recalled. 1–3 s: 17%. 3–10 s: 52%.
+    Over 10 s: 87%.</li>
+    <li><strong>86% of misses start with a hand-over</strong>, not a stoppage. 1,208 of 1,762 missed
+    possessions had the ball tracked on more than 75% of their frames.</li>
+    <li><strong>The probabilities are well calibrated</strong> (expected calibration error 0.004–0.007),
+    so recalibrating or re-tuning the decoder cannot help: the gain has to come from new information.</li>
+    <li><strong>Decoder variants are exhausted.</strong> M3 loses on 6–7 of 7 matches; switch penalty 5
+    instead of 10 wins by only +0.006.</li>
+  </ul>
+  <p class="muted" style="font-size:0.88rem">Oracle and anatomy numbers come from the Oct 20 benchmark
+  (M2 at 0.519), run before the degrader's position-noise fix (§11). That fix changes velocities, not
+  where things are, so the ordering stands; the refresh is logged in <code>docs/results.md</code>.</p>
+</section>
+
+<!-- 5 ---------------------------------------------------------------------------------- -->
+<section id="touches">
+  <span class="eyebrow">5 · Current work · direction 2</span>
+  <h2>A touch detector: who really plays the ball</h2>
+  <p>M2's team evidence is "a player within 1.5 m of the ball". That cannot tell a control from a pass
+  flying past an opponent, a duel or a deflection, which is where the hand-over losses are. The
+  ball's velocity can (<code>possession/touches.py</code>):</p>
+  <div class="cols">
+    <div class="card"><h4>Control</h4><p>A player of one team is within 1.5 m of the ball and moves
+    <em>with</em> it (relative speed under 2 m/s) for at least 0.4 s. A pass flying by has the ball's
+    full speed relative to the player, so it never qualifies, however close it passes.</p></div>
+    <div class="card"><h4>Deflection</h4><p>Next to a player, a fast ball turns by more than 30° and that
+    team does not then control it. It must <em>not</em> change possession.</p></div>
+    <div class="card"><h4>Contact</h4><p>Any other sharp change of the ball's velocity (over 3 m/s in
+    0.24 s) next to a player: kicks, blocks, clearances, one-touch interceptions.</p></div>
+  </div>
+  <p>Team-level, not slot-level: a control episode is "the nearest player moving with the ball
+  belongs to team T" on consecutive frames, whichever slot that is. The detections become 10
+  features for the model: which team last and next controlled or touched the ball, and how long
+  ago or until.</p>
+  <h3>Checked against real events</h3>
+  <p>The DFL matches come with official event logs (9,961 events), synced to the tracking frames
+  (passes agree with the possession label 98% of the time). They tell us whether the detector sees
+  what a human logger saw:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Check</th><th class="num">Clean tracking</th><th class="num">Hackathon-like tracking</th></tr></thead>
+    <tbody>
+      <tr><td>A detected control agrees with the possession label</td><td class="num">87%</td><td class="num">87%</td></tr>
+      <tr><td>The passer controls the ball just before a pass</td><td class="num">78%</td><td class="num">59%</td></tr>
+      <tr><td>Interceptions and won tackles: a control by the winner</td><td class="num">22%</td><td class="num">16%</td></tr>
+      <tr><td>Interceptions and won tackles: a contact by the winner</td><td class="num">87%</td><td class="num">61%</td></tr>
+    </tbody>
+  </table></div>
+  <div class="why"><b>A bench bug found on the way</b>On degraded tracking the first detector found no
+  controls at all. The cause was the degrader: it added independent noise on every frame, giving a
+  frame-to-frame jitter of 58 cm for players and 88 cm for the ball. The real tracking jitters by
+  0.1 cm and 0.9 cm: its errors are slow offsets that drift over a second or two. The degrader now
+  adds smooth noise of the same size (1.2 cm and 2.2 cm), and a test pins it to the real data.</div>
+  <h3>Does it help the model?</h3>
+  <p>Both models retrained on the corrected bench, then compared on the same 7 matches and 3
+  noise draws, paired by match:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th></th><th class="num">M2 base (42 features)</th><th class="num">M2 + touches (52)</th></tr></thead>
+    <tbody>
+      <tr><td>DFL held-out spellF1</td><td class="num">0.523</td><td class="num"><strong>0.550</strong></td></tr>
+      <tr><td>Paired difference, matches better</td><td class="num">–</td><td class="num"><strong>+0.028 ± 0.006, 7 / 7</strong></td></tr>
+      <tr><td>DFL macroF1</td><td class="num">0.883</td><td class="num">0.890</td></tr>
+      <tr><td>Scenario: interception</td><td class="num">30%</td><td class="num"><strong>40%</strong></td></tr>
+      <tr><td>Scenario: restart by the same team</td><td class="num">48%</td><td class="num">57%</td></tr>
+      <tr><td>Scenario: short possession</td><td class="num">6%</td><td class="num">8%</td></tr>
+      <tr><td>Real match: possessions per live minute</td><td class="num">4.16</td><td class="num">4.32 (public labels 4.25)</td></tr>
+      <tr><td>Public window spellF1 / macroF1</td><td class="num">0.622 / 0.894</td><td class="num">0.622 / 0.861</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Adopted.</strong> The gain is about four standard errors and holds on every match; no
+  scenario that worked got worse beyond a clip or two, and the real-match possession rate stays
+  plausible. One thing to watch: macroF1 on the public 5 minutes dropped by 0.03. That window holds
+  17 possessions, and the bench macroF1 rose, so it is not a reason to reject, but it is the first
+  thing to look at if the full-match score disappoints.</p>
+</section>
+
+<!-- 6 ---------------------------------------------------------------------------------- -->
+<section id="next">
+  <span class="eyebrow">6 · Plan</span>
+  <h2>Next steps</h2>
+  <ol>
+    <li><strong>Who touched it last before a stoppage</strong> (direction 1, re-aimed): the
+    possession just before the ball goes out, often a shot or a cross, is worth up to +0.11. The
+    touch detections give the last toucher directly.</li>
+    <li><strong>Refresh the benchmark</strong> on the corrected bench with the touch model: oracles and
+    failure anatomy, to re-rank what is left.</li>
+    <li><strong>Short possessions and hand-over timing</strong>: move each predicted change to the frame
+    of the control that caused it (the second half of direction 2).</li>
+    <li><strong>Switch penalty 5</strong>: still +0.006 on 7 of 7 with the base model; to re-check with
+    touches (the public window drops to 0.552 with it, within its noise).</li>
+    <li><strong>More gap data</strong>: PFF World Cup 2022 (64 matches, needs a request form) or
+    re-detecting the ball in the video, for the +0.17 ball-gap ceiling.</li>
+    <li><strong>Tech doc</strong> <code>AndaAnda.md</code> for the submission, built from this report.</li>
+  </ol>
+</section>
+
+<div class="part">Part two · The pipeline in detail</div>
 <!-- 2 ---------------------------------------------------------------------------------- -->
 <section id="problem">
-  <span class="eyebrow">2 · The task</span>
+  <span class="eyebrow">7 · The task</span>
   <h2>What we predict</h2>
   <p>The tactical video has <strong>199,319 frames</strong> at 25 per second. For each one we write
   <code>H</code>, <code>A</code>, <code>D</code> or <code>X</code> (abstain). Only the two halves are
@@ -253,13 +450,13 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
     <div class="figure-box"><canvas id="publicGt" height="96" aria-label="Public ground truth timeline"></canvas></div>
     <figcaption>Figure 2. The public ground truth: the first 5 minutes of play, 17 possessions and 4
     stoppages. Note the 0.8 s Barcelona possession between two long Athletic ones (around 3:10).
-    It is real, and a method that smooths it away loses three possessions at once (see §3).</figcaption>
+    It is real, and a method that smooths it away loses three possessions at once (see §8).</figcaption>
   </figure>
 </section>
 
 <!-- 3 ---------------------------------------------------------------------------------- -->
 <section id="metric">
-  <span class="eyebrow">3 · The metric</span>
+  <span class="eyebrow">8 · The metric</span>
   <h2>How it is scored: spellF1</h2>
   <p>The board ranks on <strong>spellF1</strong>, which treats each possession as one object rather
   than hundreds of frames. It answers a coach's question: did you find the possessions that
@@ -306,7 +503,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 4 ---------------------------------------------------------------------------------- -->
 <section id="data">
-  <span class="eyebrow">4 · Inputs</span>
+  <span class="eyebrow">9 · Inputs</span>
   <h2>The data</h2>
   <h3>The hackathon match (gated, never shown to any cloud LLM)</h3>
   <ul>
@@ -345,7 +542,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 5 ---------------------------------------------------------------------------------- -->
 <section id="bench">
-  <span class="eyebrow">5 · Infrastructure</span>
+  <span class="eyebrow">10 · Infrastructure</span>
   <h2>The test bench</h2>
   <p>The public 5-minute window has 17 possessions; one miss moves spellF1 by about 6 points, and
   the organisers showed it picks the wrong smoothing window even for the baseline. A method needs
@@ -366,7 +563,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 6 ---------------------------------------------------------------------------------- -->
 <section id="degrader">
-  <span class="eyebrow">6 · Simulation</span>
+  <span class="eyebrow">11 · Simulation</span>
   <h2>The degrader: making clean tracking look automatic</h2>
   <p>DFL's tracking is corrected and complete: the ball is always there, players never vanish.
   Scoring on that would flatter every method. <code>bench/degrade.py</code> damages it so its
@@ -403,6 +600,10 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
     drops one player alone.</li>
     <li><strong>Slots</strong>: tracklets are packed into anonymous slots, a free slot of the same team
     first. 2% land in a wrong-team slot (cross-team identity switch).</li>
+    <li><strong>Position noise</strong>: a smooth offset that drifts over about a second (white noise
+    passed three times through a 1 s moving average), not independent per-frame noise. The real
+    tracking's frame-to-frame jitter is tiny (0.1 cm for players, 0.9 cm for the ball); white noise of
+    the same size gave 58–88 cm and made every velocity meaningless (§5).</li>
   </ul>
   <div class="table-wrap"><table>
     <thead><tr><th>Statistic</th><th class="num">Real hackathon</th><th class="num">Degraded DFL</th></tr></thead>
@@ -421,7 +622,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 7 ---------------------------------------------------------------------------------- -->
 <section id="diagnostics">
-  <span class="eyebrow">7 · Understanding failures</span>
+  <span class="eyebrow">12 · Understanding failures</span>
   <h2>Diagnostics and edge-case scenarios</h2>
   <p>A single spellF1 hides <em>why</em> points are lost. Every bench run also explains each missed
   true possession with one cause:</p>
@@ -443,7 +644,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 8 ---------------------------------------------------------------------------------- -->
 <section id="baseline">
-  <span class="eyebrow">8 · Method 0</span>
+  <span class="eyebrow">13 · Method 0</span>
   <h2>Baseline: smooth50</h2>
   <p>The organisers' reference: on each frame where the ball is tracked, give it to the team of the
   nearest tracked player (distances in metres, both axes scaled). Where the ball is not tracked,
@@ -458,7 +659,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 9 ---------------------------------------------------------------------------------- -->
 <section id="hmm">
-  <span class="eyebrow">9 · Method 1</span>
+  <span class="eyebrow">14 · Method 1</span>
   <h2>M1: evidence + Viterbi decoding</h2>
   <p>A <strong>hidden Markov model</strong> treats the true state (H, A or D) as hidden and changing
   rarely, observed only through noisy clues. Decoding means finding the single sequence of states
@@ -506,7 +707,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 10 --------------------------------------------------------------------------------- -->
 <section id="learned">
-  <span class="eyebrow">10 · Method 2</span>
+  <span class="eyebrow">15 · Method 2</span>
   <h2>M2: learned evidence with gradient-boosted trees</h2>
   <p>M1's clues all need the ball. In the real data the ball is missing for 10–30 s at a time, and a
   hand-written rule cannot tell slow live play from a stoppage. M2 replaces the hand-built evidence
@@ -585,7 +786,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 11 --------------------------------------------------------------------------------- -->
 <section id="hsmm">
-  <span class="eyebrow">11 · Method 3 · <span class="status wip">evaluated, not adopted</span></span>
+  <span class="eyebrow">16 · Method 3 · <span class="status wip">evaluated, not adopted</span></span>
   <h2>M3: the semi-Markov decoder</h2>
   <p>M2 still splits live possessions inside long ball gaps. Its probabilities are not wrong: a long
   gap usually <em>is</em> a stoppage, so P(dead) rises with gap length (0.30 for 10–15 s, 0.65 beyond
@@ -632,9 +833,28 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   tested against brute force, as an option for later.</div>
 </section>
 
+
+<!-- 17 --------------------------------------------------------------------------------- -->
+<section id="rejected">
+  <span class="eyebrow">17 · Evaluated, not adopted</span>
+  <h2>Other experiments</h2>
+  <p>Each was judged the same way: held-out DFL spellF1 paired by match, the targeted scenarios, and
+  the possession rate on the real match. A change is kept only if it wins beyond noise without
+  breaking a scenario that already works.</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>Experiment</th><th>Idea</th><th>Result</th><th>Why it did not work</th></tr></thead>
+    <tbody>
+      <tr><td>Ball-gap features (direction 3)</td><td>Describe each ball gap as a whole: implied ball speed from last to next sighting, sprinting during the gap, team shapes flipping</td><td class="num">0.5220 → 0.5205</td><td>The context features already carry it. What gaps lack is training examples, not features.</td></tr>
+      <tr><td>M3 semi-Markov</td><td>Duration priors, gap-aware evidence (§16)</td><td class="num">≤ 0.517</td><td>Learned probabilities already imply the durations.</td></tr>
+      <tr><td>Switch penalty 20</td><td>Fewer changes</td><td class="num">−0.017</td><td>Merges short possessions.</td></tr>
+      <tr><td>Switch penalty 5</td><td>More changes</td><td class="num">+0.006, 7/7 matches</td><td>Real but tiny; pending a decision.</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
 <!-- 12 --------------------------------------------------------------------------------- -->
 <section id="validation">
-  <span class="eyebrow">12 · Method</span>
+  <span class="eyebrow">18 · Method</span>
   <h2>Validation discipline</h2>
   <ul>
     <li><strong>Noise bands.</strong> Full-match spellF1 differences under ~0.04 are noise (the sample is the
@@ -648,7 +868,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 13 --------------------------------------------------------------------------------- -->
 <section id="submission">
-  <span class="eyebrow">13 · Delivery</span>
+  <span class="eyebrow">19 · Delivery</span>
   <h2>Submission, reproducibility and privacy</h2>
   <p><code>uv run python -m possession.submit</code> rebuilds the match from the raw bundle, runs the
   chosen method, writes <code>submissions/AndaAnda.csv</code> and runs the organisers' validator. It
@@ -663,7 +883,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 
 <!-- 14 --------------------------------------------------------------------------------- -->
 <section id="map">
-  <span class="eyebrow">14 · Reference</span>
+  <span class="eyebrow">20 · Reference</span>
   <h2>Code map</h2>
   <div class="table-wrap"><table>
     <thead><tr><th>Path</th><th>Role</th></tr></thead>
@@ -677,8 +897,11 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
       <tr><td><code>possession/features.py</code>, <code>possession/hmm.py</code></td><td>M1 evidence and Viterbi</td></tr>
       <tr><td><code>possession/context.py</code>, <code>possession/learned.py</code></td><td>M2 features, LightGBM, leave-one-match-out guard</td></tr>
       <tr><td><code>possession/hsmm.py</code></td><td>M3 semi-Markov decoder</td></tr>
+      <tr><td><code>possession/touches.py</code></td><td>Direction 2: control / deflection / contact detector and its features</td></tr>
+      <tr><td><code>possession/gaps.py</code></td><td>Direction 3 ball-gap features (evaluated, unused)</td></tr>
+      <tr><td><code>bench/dfl_events.py</code></td><td>DFL official events synced to the tracking frames</td></tr>
       <tr><td><code>possession/submit.py</code></td><td>One command to a validated submission</td></tr>
-      <tr><td><code>scripts/</code></td><td>Tuning (<code>tune_hmm</code>, <code>tune_learned</code>), M3 ablation, scenario page</td></tr>
+      <tr><td><code>scripts/</code></td><td>Tuning (<code>tune_hmm</code>, <code>tune_learned</code>), M3 ablation, <code>benchmark</code>, <code>validate_touches</code>, scenario page</td></tr>
     </tbody>
   </table></div>
 </section>

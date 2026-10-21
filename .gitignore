@@ -17,3 +17,4 @@ __pycache__/
 *.py[cod]
 .pytest_cache/
 models/lomo/
+models_exp/

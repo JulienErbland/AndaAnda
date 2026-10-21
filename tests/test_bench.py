@@ -183,3 +183,19 @@ def test_dfl_events_parse_sync_and_snap(tmp_path):
     dfl_events.sync(ev, m)
     assert not ev[1]["snapped"]                              # never snap to the wrong place
     assert ev[2]["row"] == 210 and ev[2]["snapped"]          # the dead -> live switch
+
+
+def test_degraded_positions_are_smooth_like_the_real_tracking():
+    """Real ATD jitter: median second difference 0.1 cm (players), 0.9 cm (ball). The added error
+    must be a slow offset (tens of cm), not frame-to-frame jitter."""
+    clean = _toy_match()
+    keep_slots = Profile(blackout_share=0, player_blackouts_per_min=0, player_missing=0,
+                         tracklet_s=1e9, wrong_team=0, duplicates_per_min=0)
+    m = degrade(clean, keep_slots, seed=0)
+    pitch = np.asarray(m.pitch)
+    for added in ((m.players[..., :2] - clean.players[..., :2]) * pitch,
+                  (m.ball[:, :2] - clean.ball[:, :2]) * pitch):
+        jitter = np.sqrt((np.diff(added, 2, axis=0) ** 2).sum(-1))
+        offset = np.sqrt((added ** 2).sum(-1))
+        assert np.nanmedian(jitter) < 0.01                       # < 1 cm frame to frame
+        assert 0.1 < np.nanmedian(offset) < 0.5                  # but a real position error

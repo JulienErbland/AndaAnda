@@ -192,9 +192,13 @@ slowing to a player's pace and staying with him for >= 0.4 s; a deflection is a 
 of the ball near a player, with no control after it. A pass flying past an opponent is no touch.
 Feed "last/next control team, time since/until" from these events into the model, and refine
 each predicted hand-over to the frame of the control that caused it.
-- [ ] specs: interception = control, pass past an opponent = nothing, deflection != control,
+- [x] specs: interception = control, pass past an opponent = nothing, deflection != control,
       a 0.8 s control still counts
-- [ ] targets: interception >= 40%, short_spell >= 15%
+- [ ] targets: interception >= 40% (reached: 40%, now a floor), short_spell >= 15% (8%)
+- Review (Oct 21): adopted. Degrader noise fixed first (white -> smooth; jitter 58-88 cm -> 1.2-2.2 cm,
+  real 0.1-0.9 cm), M2 retrained (0.523). Touch features: DFL 0.523 -> 0.550, +0.028 +- 0.006,
+  7/7 matches; interception 30 -> 40%, restart_same 48 -> 57%; real rate 4.32. Public macroF1
+  0.894 -> 0.861 (17 spells, watch it). Not done yet: snapping hand-overs to the control frame.
 
 ## Direction 3: ball-gap reasoning (`possession/gaps.py`)
 Weak spots: change_in_ball_gap 25%, ball_gap_hold 23%, blackout_change 14%. M3 showed the

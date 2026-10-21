@@ -19,7 +19,10 @@ simulated:
 - identity switches that can cross teams
   -> a fraction of tracklets land in a slot of the wrong team (team-level features are all a
      method can use, so a same-team switch is invisible and not simulated);
-- position noise.
+- position error: SMOOTH, not jitter. The real ATD's frame-to-frame jitter is tiny (median
+  second difference 0.1 cm for players, 0.9 cm for the ball; measured Oct 20), so its errors are
+  slow offsets. Noise is white noise low-passed over `noise_smooth_s` and rescaled to the given
+  standard deviation, which keeps velocities realistic.
 
 Calibrated on 2026-10-20 against `python -m bench stats hackathon` (aggregates only). The
 alive/dead split is an estimate: the public window covers 5 minutes only, so the full-match split
@@ -50,7 +53,7 @@ class Profile:
     crowd_radius_m: float = 3.0
     fast_ball_gain: float = 1.0        # extra multiplier when ball speed > fast_ball_ms
     fast_ball_ms: float = 12.0
-    ball_noise_m: float = 0.3
+    ball_noise_m: float = 0.3         # std of the smooth position error
     # Tracker blackouts: share of ball gaps that also hide players, each with prob ~U(lo, hi).
     blackout_share: float = 0.3
     blackout_hide: tuple = (0.2, 0.6)
@@ -65,6 +68,7 @@ class Profile:
     duplicates_per_min: float = 0.5
     duplicate_s: float = 2.0
     player_noise_m: float = 0.2
+    noise_smooth_s: float = 1.0       # correlation time of the position error
 
 
 PROFILES = {
@@ -89,12 +93,30 @@ def degrade(match, profile="hackathon", seed=0):
     ball = match.ball.copy()
     missing = _ball_gaps(match, profile, rng)
     ball[missing] = np.nan
-    ball[:, :2] += rng.normal(0, profile.ball_noise_m, (len(ball), 2)) / metres
+    ball[:, :2] += _smooth_noise(rng, (len(ball), 2), profile.ball_noise_m,
+                                 profile.noise_smooth_s) / metres
 
     players, slot_team = _fragment_players(match, profile, rng,
                                            _blackouts(missing, match.players.shape[1], profile, rng))
-    players[..., :2] += rng.normal(0, profile.player_noise_m, players[..., :2].shape) / metres
+    players[..., :2] += _smooth_noise(rng, players[..., :2].shape, profile.player_noise_m,
+                                      profile.noise_smooth_s) / metres
     return replace(match, ball=ball, players=players, slot_team=slot_team)
+
+
+def _smooth_noise(rng, shape, std, smooth_s):
+    """Gaussian noise low-passed along time (axis 0), rescaled to `std`.
+
+    Three passes of a moving average approximate a Gaussian filter: one pass leaves steps at the
+    window edges, which show up as ~8 cm of frame-to-frame jitter; three bring it under 1 cm.
+    """
+    if std <= 0:
+        return np.zeros(shape, dtype=np.float32)
+    w = max(1, int(round(smooth_s * FPS)))
+    x = rng.normal(0, 1, (shape[0] + 3 * (w - 1),) + tuple(shape[1:]))
+    for _ in range(3):
+        c = np.concatenate([np.zeros((1,) + x.shape[1:]), np.cumsum(x, axis=0)], axis=0)
+        x = (c[w:] - c[:-w]) / w
+    return (x * std / x.std()).astype(np.float32)
 
 
 def _gap_cover(start_prob, lengths, u):
