@@ -34,14 +34,18 @@ def cmd_eval(args):
     from possession import learned
     from scripts.tune_hmm import spell_rate
 
-    out = {"model_dir": learned.MODEL_DIR, "labels": os.environ.get("MTAH_DFL_LABELS", "dfl"),
+    prof = "hackathon"
+    if args.profile == "stress":
+        from scripts.benchmark import STRESS
+        prof = STRESS
+    out = {"model_dir": learned.MODEL_DIR, "profile": args.profile, "labels": os.environ.get("MTAH_DFL_LABELS", "dfl"),
            "switches": args.switches, "dfl": [], "hackathon": {}, "scenarios": {},
            "bench_rate": []}
     contexts, preds = [], {"m": {}}
     for p in match_paths(["dfl"]):
         clean = Match.load(p)
         for seed in args.seeds:
-            seen = degrade(clean, "hackathon", seed=seed + sum(map(ord, clean.name)))
+            seen = degrade(clean, prof, seed=seed + sum(map(ord, clean.name)))
             view = seen.without_labels()
             pr = learned.probabilities(view)
             for sw in args.switches:
@@ -132,6 +136,8 @@ def main():
     p.add_argument("--out", required=True)
     p.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--switches", type=float, nargs="+", default=[5, 7, 10, 14, 20])
+    p.add_argument("--profile", choices=["hackathon", "stress"], default="hackathon",
+                   help="degrader profile the DFL matches are scored under")
     p.set_defaults(func=cmd_eval)
     p = sub.add_parser("compare")
     p.add_argument("a")

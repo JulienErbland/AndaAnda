@@ -137,6 +137,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <a href="#overview">3 · The pipeline today</a>
   <a href="#failures">4 · Where it still fails</a>
   <a href="#touches">5 · Current work</a>
+  <a href="#benchfix">5b · Fixing the bench</a>
   <a href="#next">6 · Next steps</a>
   <span class="label" style="margin-top:14px">Pipeline in detail</span>
   <a href="#problem">7 · What we predict</a>
@@ -164,7 +165,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   pipeline stands, where it still fails and what comes next. Part two explains every stage in
   depth: the theory behind each tool, why we chose it, and what it measured on held-out matches.
   Every number is tracked in <a href="results.md"><code>docs/results.md</code></a>.</p>
-  <p class="muted mono" style="font-size:0.8rem">Status as of <!--DATE-->Oct 21, 2026<!--/DATE--></p>
+  <p class="muted mono" style="font-size:0.8rem">Status as of <!--DATE-->Oct 22, 2026<!--/DATE--></p>
   <div class="legend" aria-label="Label colours">
     <span><i style="background:var(--home)"></i>H: home (Barcelona) in possession</span>
     <span><i style="background:var(--away)"></i>A: away (Athletic) in possession</span>
@@ -178,7 +179,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <h2>Where we stand</h2>
   <div class="stats">
     <div class="stat"><span class="k">Best method</span><span class="v">M2</span><span class="d">LightGBM evidence + Viterbi decoder</span></div>
-    <div class="stat"><span class="k">DFL held-out spellF1</span><span class="v">0.550</span><span class="d">7 matches × 3 noise draws; baseline 0.25</span></div>
+    <div class="stat"><span class="k">Bench spellF1 (fixed bench)</span><span class="v">0.611</span><span class="d">hackathon-style labels, realistic tracking; baseline 0.28</span></div>
     <div class="stat"><span class="k">Public window spellF1</span><span class="v">0.622</span><span class="d">17 possessions: a sanity check, not a target</span></div>
     <div class="stat"><span class="k">Real possessions / live min</span><span class="v">4.32</span><span class="d">public labels: 4.25</span></div>
   </div>
@@ -198,9 +199,14 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
     <li><strong>Tried since, not adopted.</strong> A player-level carrier model, a decoder that
     follows the ball from player to player, and a model that fills in the ball during gaps. The
     pieces work on their own, but none improved possession yet (§5).</li>
-    <li><strong>The main risk now is the yardstick, not the tracking.</strong> The bench's labels
-    (DFL) change possession twice as often as the hackathon's, so the bench rewards changing too
-    often. Fixing that comes first (§6).</li>
+    <li><strong>The bench is fixed (Oct 22).</strong> Its labels now follow a hackathon-style rule
+    (DFL's own labels changed possession twice as often), and its simulated tracking now reproduces
+    the real tracker's failures: a smoothed ball path, false ball blips, gaps that start as the ball
+    leaves play, identity breaks in duels (§5).</li>
+    <li><strong>The main open problem: the real tracking hides hand-overs.</strong> In the public 5
+    minutes there are 17 possessions; the submission finds 10. Models trained on the fixed bench do
+    better on the bench (+0.09) but find only 8 on the real match, so they are not adopted. Ball
+    detection in the video, built and waiting for the video file, is the fix aimed at the source (§6).</li>
     <li><strong>Submission.</strong> One command rebuilds <code>AndaAnda.csv</code> from the raw
     bundle, byte-identical across runs, validated by the organisers' script. Deadline Nov 17, 2026.</li>
   </ul>
@@ -327,36 +333,40 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 <section id="failures">
   <span class="eyebrow">4 · Diagnosis</span>
   <h2>Where it still fails</h2>
-  <p>The benchmark (<code>scripts/benchmark.py</code>, full tables in <code>docs/benchmark.md</code>)
-  asks two questions: which errors cost points, and how much each perfect fix would be worth. An
-  <strong>oracle</strong> replaces M2's output by the truth for one kind of error only; the gain is
-  the ceiling of that direction.</p>
+  <p>The benchmark (<code>scripts/benchmark.py</code>) asks which errors cost points and how much
+  each perfect fix would be worth. An <strong>oracle</strong> replaces M2's output by the truth for
+  one kind of error only; the gain is the ceiling of that direction. Refreshed Oct 22 on the fixed
+  bench (hackathon-style labels, realistic degrader; M2 at 0.611); the Oct 20 numbers on DFL's own
+  labels are shown for contrast.</p>
   <div class="table-wrap"><table>
-    <thead><tr><th>Perfect fix of…</th><th class="num">spellF1</th><th class="num">gain</th><th>Reading</th></tr></thead>
+    <thead><tr><th>Perfect fix of…</th><th class="num">gain, fixed bench</th><th class="num">gain, Oct 20</th><th>Reading</th></tr></thead>
     <tbody>
-      <tr><td>team, on frames both call live</td><td class="num">0.909</td><td class="num"><strong>+0.39</strong></td><td>Who has the ball is the dominant loss</td></tr>
-      <tr><td>possessions shorter than 2 s</td><td class="num">0.755</td><td class="num">+0.24</td><td>Inflated by DFL's definition (many more short ones)</td></tr>
-      <tr><td>hand-overs (±1 s around each change)</td><td class="num">0.699</td><td class="num">+0.18</td><td>The moment of the change</td></tr>
-      <tr><td>frames with the ball missing</td><td class="num">0.693</td><td class="num">+0.17</td><td>Gaps matter, but second</td></tr>
-      <tr><td>stoppage starts (±2 s around live → dead)</td><td class="num">0.632</td><td class="num">+0.11</td><td>Who had the last touch before it went out</td></tr>
-      <tr><td>restarts (±2 s around dead → live)</td><td class="num">0.562</td><td class="num">+0.04</td><td>Low ceiling</td></tr>
-      <tr><td>ball always tracked</td><td class="num">0.558</td><td class="num">+0.04</td><td>Re-detecting the ball alone is not enough</td></tr>
-      <tr><td>dead / alive call</td><td class="num">0.540</td><td class="num">+0.02</td><td>Already good</td></tr>
+      <tr><td>team, on frames both call live</td><td class="num"><strong>+0.28</strong></td><td class="num">+0.39</td><td>Still by far the dominant loss</td></tr>
+      <tr><td>frames with the ball missing</td><td class="num">+0.07</td><td class="num">+0.17</td><td>Second, and smaller than it looked</td></tr>
+      <tr><td>stoppage starts (±2 s around live → dead)</td><td class="num">+0.04</td><td class="num">+0.11</td><td>Who had the last possession before the ball went out</td></tr>
+      <tr><td>possessions shorter than 2 s</td><td class="num">+0.04</td><td class="num">+0.24</td><td>Mostly a DFL artefact: its labels made many short ones</td></tr>
+      <tr><td>dead / alive call</td><td class="num">+0.03</td><td class="num">+0.02</td><td>Already good</td></tr>
+      <tr><td>restarts (±2 s around dead → live)</td><td class="num">+0.03</td><td class="num">+0.04</td><td>Low ceiling</td></tr>
+      <tr><td>ball always tracked</td><td class="num">+0.02</td><td class="num">+0.04</td><td>Re-detecting the ball alone is not enough</td></tr>
+      <tr><td>timing of changes (within 1 s)</td><td class="num">+0.02</td><td class="num">+0.03</td><td>Small</td></tr>
     </tbody>
   </table></div>
   <ul>
-    <li><strong>Short possessions are the misses.</strong> Under 1 s: 2% recalled. 1–3 s: 17%. 3–10 s: 52%.
-    Over 10 s: 87%.</li>
-    <li><strong>86% of misses start with a hand-over</strong>, not a stoppage. 1,208 of 1,762 missed
-    possessions had the ball tracked on more than 75% of their frames.</li>
-    <li><strong>The probabilities are well calibrated</strong> (expected calibration error 0.004–0.007),
-    so recalibrating or re-tuning the decoder cannot help: the gain has to come from new information.</li>
-    <li><strong>Decoder variants are exhausted.</strong> M3 loses on 6–7 of 7 matches; switch penalty 5
-    instead of 10 wins by only +0.006.</li>
+    <li><strong>Tracking costs about 0.06.</strong> M2 scores 0.679 with perfect tracking, 0.659 with
+    only the ball degraded, 0.619 on hackathon-like tracking and 0.593 under stress.</li>
+    <li><strong>Short possessions are still the misses.</strong> Under 1 s: 2% recalled; 1–3 s: 32%;
+    3–10 s: 64%; over 10 s: 84%. After a hand-over 66% of possessions are found, after a stoppage 70%.</li>
+    <li><strong>Calibration stays excellent</strong> (expected calibration error 0.009–0.010): gains
+    must come from new information, not from re-tuning.</li>
+    <li><strong>On the fixed bench, fewer changes win.</strong> Switch penalty 20 beats 10 by +0.030
+    (7/7) and the semi-Markov decoder by +0.014 (7/7), the reverse of DFL's labels. On the real match
+    all give the same public score (0.622); switch 20 predicts 4.16 possessions per live minute.</li>
+    <li><strong>Edge cases, fixed bench:</strong> restarts 59–63%, hold through a ball gap 46%,
+    change during a ball gap 41%, change during a blackout 25%, interceptions 27%.</li>
   </ul>
-  <p class="muted" style="font-size:0.88rem">Oracle and anatomy numbers come from the Oct 20 benchmark
-  (M2 at 0.519), run before the degrader's position-noise fix (§11). That fix changes velocities, not
-  where things are, so the ordering stands; the refresh is logged in <code>docs/results.md</code>.</p>
+  <p class="muted" style="font-size:0.88rem">Ceiling for hand-overs (±1 s around each change)
+  comes out at −0.03 on the fixed bench, an artefact of how that oracle copies windows around
+  changes the v2 labels date differently; it is left out of the reading.</p>
 </section>
 
 <!-- 5 ---------------------------------------------------------------------------------- -->
@@ -451,30 +461,71 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   until the bench uses a hackathon-style definition of possession.</div>
 </section>
 
+<!-- 5b -->
+<section id="benchfix">
+  <span class="eyebrow">5b · Current work · the yardstick</span>
+  <h2>Fixing the bench</h2>
+  <p><strong>Labels.</strong> The hackathon labels are a rule applied to corrected tracking; DFL
+  gives clean tracking, so DFL was relabelled with a hackathon-style rule
+  (<code>bench/relabel.py</code>): possession changes only when the other team controls the ball,
+  and the change is dated from that team's first touch. Calibrated on the public labels' statistics:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>labels</th><th class="num">possessions / live min</th><th class="num">durations p10 / p50 / p90</th></tr></thead>
+    <tbody>
+      <tr><td>DFL original</td><td class="num">8.30</td><td class="num">0.8 / 3.7 / 18.6 s</td></tr>
+      <tr class="best"><td>hackathon-style rule (v2)</td><td class="num">4.35</td><td class="num">2.2 / 8.8 / 31.4 s</td></tr>
+      <tr><td>public labels (17 possessions)</td><td class="num">4.25</td><td class="num">2.2 / 7.6 / 38.1 s</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Tracking.</strong> Measured on the real tracking (aggregates only), the degrader
+  missed several real failure modes. Each is now simulated and calibrated:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th></th><th class="num">real</th><th class="num">bench before</th><th class="num">bench now</th></tr></thead>
+    <tbody>
+      <tr><td>deflections detected per minute (ball path smoothed)</td><td class="num">2.1</td><td class="num">6.1</td><td class="num">2.3</td></tr>
+      <tr><td>ball jumps per minute (false detections)</td><td class="num">1.12</td><td class="num">0.13</td><td class="num">0.97</td></tr>
+      <tr><td>ball speed when a gap starts, median</td><td class="num">1.7 m/s</td><td class="num">0.5</td><td class="num">2.2</td></tr>
+      <tr><td>players within 3 m when a gap starts</td><td class="num">1.04</td><td class="num">0.57</td><td class="num">0.96</td></tr>
+      <tr><td>player tracks ending next to an opponent</td><td class="num">33%</td><td class="num">12%</td><td class="num">35%</td></tr>
+    </tbody>
+  </table></div>
+  <p><strong>Result.</strong> Training on the fixed bench gains about +0.09 on it (robust to the
+  exact rule), but transfers only partly to the real match:</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>model</th><th class="num">bench</th><th class="num">real rate</th><th class="num">public</th><th class="num">public possessions found (of 17)</th></tr></thead>
+    <tbody>
+      <tr class="best"><td>current submission</td><td class="num">0.611</td><td class="num">4.32</td><td class="num">0.622</td><td class="num">10</td></tr>
+      <tr><td>trained on DFL labels, realistic bench</td><td class="num">0.649</td><td class="num">3.98</td><td class="num">0.622</td><td class="num">10</td></tr>
+      <tr><td>trained on the new labels, realistic bench</td><td class="num">0.740</td><td class="num">3.42</td><td class="num">0.496</td><td class="num">8</td></tr>
+      <tr><td>same, before the realism fixes</td><td class="num">0.735</td><td class="num">3.22</td><td class="num">0.330</td><td class="num">6</td></tr>
+    </tbody>
+  </table></div>
+  <div class="why"><b>What this means</b>The realism fixes moved the retrained model the right way
+  (6 → 8 of 17 public possessions), but every model still misses many hand-overs that the real
+  tracking hides. Smart Tagging (redundant with M2 at a safe weight) and snapping changes to the
+  control frame (a circular gain) were also tried and left off.</div>
+</section>
+
 <!-- 6 ---------------------------------------------------------------------------------- -->
 <section id="next">
   <span class="eyebrow">6 · Plan</span>
   <h2>Next steps</h2>
   <ol>
-    <li><strong>Fix the yardstick.</strong> The hackathon labels are computed by a rule from
-    corrected tracking, and DFL gives clean tracking. So relabel DFL with a hackathon-style rule:
-    possession changes only on a real control by the other team, and a loose ball stays with the
-    last team. Tune it until the relabelled matches show the public labels' statistics: about 4.3
-    possessions per live minute, median 7.6 s, 10% under 2.2 s. Then train and judge on those labels.</li>
-    <li><strong>Re-judge on that yardstick</strong> M2 + touches, the carrier features, and the
-    path decoder used narrowly: move each of M2's own changes onto the frame of the control, adding
-    no changes of its own.</li>
-    <li><strong>Varied degradation in training</strong>: several noise draws, with gap length,
-    blackouts and noise drawn around the calibrated values, so the real tracker falls inside what the
-    models have seen. Also measure ball-speed spikes on the real tracking, to spot false ball
-    detections the degrader never simulates.</li>
-    <li><strong>Who touched it last before a stoppage</strong> (up to +0.11), from the touch detections.</li>
-    <li><strong>Ball detection in the tactical video</strong>, run locally: the only way to add
-    information inside the gaps (+0.17 ceiling). The biggest effort; also PFF World Cup 2022 data for
-    more gap examples.</li>
-    <li><strong>Fine-tuning on the hackathon match</strong> as the last step: carrier and ball
-    filling (<code>ballfill.finetune</code>, written, not run).</li>
-    <li><strong>Tech doc</strong> <code>AndaAnda.md</code> for the submission, built from this report.</li>
+    <li><strong>Ball detection in the tactical video</strong> (<code>possession/video.py</code>,
+    built and tested on synthetic video): search where the ball-filling model says the ball is,
+    find small bright moving blobs of the right size through the homography, link them in time.
+    Waiting for the video file; first run is a self-check on hidden tracked balls (aggregates only).</li>
+    <li><strong>Varied degradation in training</strong> (built): compare clean, one degraded draw and
+    varied draws, under the normal and stress profiles.</li>
+    <li><strong>Remaining realism gaps</strong>: false blips (implied speed across short gaps 13 vs
+    66 m/s) and the tail of the gap-start speed.</li>
+    <li><strong>Decoder on the fixed bench</strong>: switch penalty 20 and the semi-Markov decoder
+    win there (+0.03 / +0.014, 7/7) with the same public score; decide together with item 1.</li>
+    <li><strong>Who touched it last before a stoppage</strong> (+0.04 ceiling now).</li>
+    <li><strong>Fine-tuning on the hackathon match</strong> as the last step (ball filling written,
+    not run).</li>
+    <li><strong>Freeze the model ~Nov 10</strong>, write the tech doc <code>AndaAnda.md</code>, check
+    the public repo. Deadline Nov 17.</li>
   </ol>
 </section>
 

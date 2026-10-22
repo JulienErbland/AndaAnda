@@ -249,3 +249,15 @@ def test_realism_knobs_switch_off_cleanly_and_work_when_on():
     step0 = np.linalg.norm(np.diff(a.ball[:, :2] * np.asarray(a.pitch), axis=0), axis=1)
     assert np.nansum(step > 2) > np.nansum(step0 > 2) + 5            # false detections jump
     assert np.array_equal(f.players, a.players, equal_nan=True)      # players untouched
+
+
+def test_vary_draws_neighbours_of_the_calibrated_profile():
+    from bench.degrade import PROFILES, VARIED, vary
+    base = PROFILES["hackathon"]
+    rng = np.random.default_rng(0)
+    draws = [vary(base, rng, 0.25) for _ in range(200)]
+    for k in VARIED:
+        ratio = np.array([getattr(d, k) for d in draws]) / getattr(base, k)
+        assert 0.85 < np.median(ratio) < 1.15 and ratio.std() > 0.1     # centred, really varied
+    assert all(d.ball_missing_dead <= 0.9 for d in draws)
+    assert vary(base, np.random.default_rng(0), 0.0) == base

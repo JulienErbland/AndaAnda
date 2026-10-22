@@ -338,9 +338,9 @@ with a hackathon-like rule so the bench measures the right definition of possess
       smoothed (deflections 2.1/min vs 6.1 on the bench, controls 5.6 vs 7.9).
 - [x] degrader: ball smoothing 0.20 s (`Profile.ball_smooth_s`), fitted on the real ball's
       acceleration percentiles, checked on touch rates (deflections 6.1 -> 2.3/min, real 2.1)
-- [ ] retrain on the smoothed bench: A_s (DFL labels), B_s (main rule), B_lo / B_hi (neighbouring
-      rules, robustness); compare on the main labels and on the real rate
-- [ ] re-run the benchmark and the scenarios on the fixed bench
+- [x] retrain on the smoothed bench: A_s, B_s, B_lo, B_hi (robust to the rule; see results.md)
+- [x] benchmark and scenarios re-run on the fixed bench (docs/benchmark.md, Oct 22 section);
+      report.html updated (summary, §4, new §5b, next steps)
 
 ## 2. Re-test carrier and path on the fixed bench
 - [ ] M2 + carrier features vs M2 + touches, paired by match, at the real-match change rate
@@ -369,10 +369,10 @@ with a hackathon-like rule so the bench measures the right definition of possess
       A_r +0.038 over the submission on the bench, same public (0.622, 10/17) -> held
 - [ ] remaining realism gaps: false blips (implied speed across short gaps 13 vs 66 m/s),
       gap-start speed tail; then ball detection from video (item 5)
-- [ ] varied degradation in training: several seeds, gap length / blackouts / noise drawn
-      around the calibrated values
-- [ ] check: M2 trained clean vs one degraded draw vs varied draws, scored under hackathon and
-      stress profiles
+- [x] varied degradation in training (`degrade.vary`, `learned train --draws N --vary S
+      --profile P`; guard against writing experiments into models/)
+- [x] check: clean −0.116 (0/7), varied +0.006 / +0.010 under stress (within noise), public worse
+      -> one degraded draw stays; varied not adopted
 
 ## 4. Smart Tagging
 - [x] reader for the hackathon tags (`possession/tags.py`); Team meaning per code measured on the
@@ -386,11 +386,12 @@ with a hackathon-like rule so the bench measures the right definition of possess
       live frames -> redundant at a safe weight; NOT used in the submission
 
 ## 5. Ball gaps from the tactical video
-- [ ] ball detector run locally on the tactical video (no cloud), small-object model
-      (e.g. a YOLO / TrackNet-style detector fine-tuned on public football data)
-- [ ] map detections to the pitch with the per-frame homography; keep only frames where the
-      tracking has no ball, with a confidence
-- [ ] validate without looking at the data: agreement with the tracked ball where both exist
-      (aggregate distance), share of gap frames recovered
-- [ ] feed recovered balls into the tracking before features/touches; compare on the real match's
-      rate and durations
+- [x] detector (`possession/video.py`): search window from the ball-filling prior + homography;
+      small bright unsaturated MOVING blobs of the expected pixel size; temporal linking. Classical
+      CV (OpenCV), no deep model yet. 5 tests on synthetic frames / a synthetic MP4
+- [x] pixels -> pitch through the per-frame homography; `apply(match)` fills gaps only
+- [x] self-check + diagnose + 72-setting sweep: best 24.7% within 1 m, median 2.68 m vs prior
+      2.57 m -> the classical detector does not work (cannot tell the ball from similar blobs)
+- [ ] learned patch classifier trained on THIS video, the tracked ball as free labels (59% of
+      frames); go/no-go on the self-check (>= 60% within 1 m, error below the prior)
+- [ ] only then `detect` and compare M2 with/without filled balls on the real match

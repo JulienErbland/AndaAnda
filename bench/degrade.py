@@ -112,6 +112,25 @@ PROFILES = {
 FPS = 25
 
 
+# Parameters `vary` perturbs: what is calibrated but uncertain (a fit to one real match).
+VARIED = ("ball_missing_alive", "ball_missing_dead", "ball_gap_median_s", "blackout_share",
+          "tracklet_s", "player_noise_m", "ball_noise_m", "ball_smooth_s", "ball_false_per_min",
+          "break_duel_gain", "crowd_gain")
+
+
+def vary(profile, rng, spread=0.25):
+    """A random neighbour of `profile`: each VARIED parameter times exp(N(0, spread)), missing
+    rates kept below 0.9. Training on many neighbours puts the real tracker inside what the model
+    has seen even where the calibration is off (domain randomisation)."""
+    if isinstance(profile, str):
+        profile = PROFILES[profile]
+    out = {}
+    for k in VARIED:
+        v = getattr(profile, k) * float(np.exp(rng.normal(0, spread)))
+        out[k] = min(v, 0.9) if k.startswith("ball_missing") else v
+    return replace(profile, **out)
+
+
 def degrade(match, profile="hackathon", seed=0):
     if isinstance(profile, str):
         profile = PROFILES[profile]

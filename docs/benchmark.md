@@ -144,3 +144,36 @@ public window can't separate the M2 variants (all 0.622): 17 possessions are too
    - ball re-detection alone: +0.04 (its value is through the gaps' *team* question, item 4).
 6. **Free small change:** switch penalty 10 → 5. It wins on 7 of 7 matches (+0.006), and its
    real-match durations are closer to the public labels.
+
+## Refresh on the fixed bench (Oct 22)
+
+`MTAH_DFL_LABELS=hackathon uv run python scripts/benchmark.py`: hackathon-style labels (relabel
+v2) and the realistic degrader; the submission model (M2 + touches).
+
+| method | spellF1 | macroF1 | vs M2 | matches better |
+|---|---|---|---|---|
+| M2, switch 20 | 0.641 | 0.887 | +0.030 ± 0.002 | 7 / 7 |
+| M3 duration priors | 0.625 | 0.886 | +0.014 ± 0.001 | 7 / 7 |
+| M3 gap weighting κ=200 | 0.622 | 0.884 | +0.011 ± 0.001 | 7 / 7 |
+| **M2 learned** (switch 10) | 0.611 | 0.885 | — | — |
+| M2, switch 5 | 0.586 | 0.884 | −0.025 ± 0.002 | 0 / 7 |
+| M1 hmm | 0.534 | 0.814 | −0.077 ± 0.008 | 0 / 7 |
+| smooth50 | 0.275 | 0.616 | −0.335 ± 0.008 | 0 / 7 |
+
+Sensitivity: clean 0.679, ball only 0.659, hackathon 0.619, stress 0.593.
+
+Oracle gains: team +0.279, ball-gap frames +0.072, stoppage starts +0.039, short possessions
++0.038, dead/alive +0.033, restarts +0.026, ball always tracked +0.023, timing +0.020 (hand-overs
+±1 s: −0.035, an artefact of the window copy with v2-dated changes).
+
+Recall by duration: < 1 s 2%, 1–3 s 32%, 3–10 s 64%, ≥ 10 s 84%. By start: after a hand-over
+66%, after a stoppage 70%. Calibration error 0.009–0.010.
+
+Real match (all decoders): public 0.622 for M2 switch 10/20 and M3; rates 4.15–4.32.
+
+Scenarios (learned): pass past opponents 87%, interception 27%, restarts 59% / 63%, long stoppage
+97%, hold through a ball gap 46%, change during a ball gap 41%, change during a blackout 25%,
+dead ball visible 95%, slow play 75%, kick-off 12%.
+
+Reading: who has the ball (+0.28) is still the dominant loss; short possessions were mostly a DFL
+artefact (+0.24 -> +0.04); fewer changes win on the fixed bench, the reverse of DFL's labels.

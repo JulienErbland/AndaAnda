@@ -8,6 +8,7 @@ dependencies = [
     "pandas",
     "matplotlib",
     "lightgbm>=4.7.0",
+    "opencv-python-headless>=5.0.0.93",
 ]
 
 [dependency-groups]

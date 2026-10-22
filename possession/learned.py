@@ -13,6 +13,7 @@ model that never saw it, so bench numbers on DFL are always held-out.
 import argparse
 import json
 import os
+import sys
 from dataclasses import dataclass, replace
 
 import numpy as np
@@ -84,21 +85,34 @@ def fit(matches, feature_set="base"):
     return lgb.train(LGB_PARAMS, lgb.Dataset(X_, y, feature_name=rows[0][2]), ROUNDS)
 
 
-def train(feature_set="base"):
+def train(feature_set="base", draws=1, spread=0.0, profile="hackathon"):
+    """draws > 1: each match enters training `draws` times, each with its own degrader seed and,
+    when spread > 0, its own random neighbour of the calibrated profile (degrade.vary)."""
     from bench.__main__ import load_degraded, match_paths
+    from bench.degrade import degrade, vary
+    from bench.match import Match
     paths = match_paths(["dfl"])
-    matches = [load_degraded(p, "hackathon", 0) for p in paths]
+    if draws == 1 and spread == 0:
+        matches = [load_degraded(p, profile, 0) for p in paths]
+    else:
+        matches = []
+        for p in paths:
+            clean = Match.load(p)
+            for k in range(draws):
+                rng = np.random.default_rng(1000 + k + sum(map(ord, clean.name)))
+                prof = vary(profile, rng, spread) if spread > 0 else profile
+                matches.append(degrade(clean, prof, seed=k + sum(map(ord, clean.name))))
     os.makedirs(LOMO_DIR, exist_ok=True)
     fit(matches, feature_set).save_model(FULL_MODEL)
     with open(META, "w") as f:
-        json.dump({"trained_on": [m.name for m in matches], "profile": "hackathon",
-                   "feature_set": feature_set,
+        json.dump({"trained_on": sorted({m.name for m in matches}), "profile": profile,
+                   "feature_set": feature_set, "draws": draws, "spread": spread,
                    "params": LGB_PARAMS, "rounds": ROUNDS}, f, indent=1)
     print("full model ->", os.path.relpath(FULL_MODEL, ROOT))
-    for held in matches:
-        fit([m for m in matches if m.name != held.name], feature_set).save_model(
-            os.path.join(LOMO_DIR, held.name + ".txt"))
-        print("  without", held.name)
+    for name in sorted({m.name for m in matches}):
+        fit([m for m in matches if m.name != name], feature_set).save_model(
+            os.path.join(LOMO_DIR, name + ".txt"))
+        print("  without", name)
 
 
 def _model_for(match):
@@ -140,4 +154,15 @@ if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("cmd", choices=["train"])
     ap.add_argument("--features", choices=FEATURE_SETS, default="base")
-    train(ap.parse_args().features)
+    ap.add_argument("--draws", type=int, default=1, help="degraded copies per match")
+    ap.add_argument("--vary", type=float, default=0.0,
+                    help="spread of the degrader parameters per copy (degrade.vary), e.g. 0.25")
+    ap.add_argument("--profile", default="hackathon", help="degrader profile (clean = no degradation)")
+    ap.add_argument("--overwrite-submission-model", action="store_true",
+                    help="allow experiment options to write into models/ (the submission model)")
+    a = ap.parse_args()
+    experiment = (a.draws, a.vary, a.profile) != (1, 0.0, "hackathon")
+    if experiment and not os.environ.get("MTAH_MODEL_DIR") and not a.overwrite_submission_model:
+        sys.exit("refusing to overwrite the submission model in models/ with experiment options; "
+                 "set MTAH_MODEL_DIR=models_exp/<name> (or pass --overwrite-submission-model)")
+    train(a.features, a.draws, a.vary, a.profile)

@@ -343,3 +343,66 @@ The structural realism knobs improved transfer (B: 6 -> 8 public possessions, pu
 0.50, rate 3.22 -> 3.42) but did not close the bench -> real gap. Not adopted: B_r (the real-match
 evidence still prefers the current behaviour); A_r is a small, consistent bench gain with the
 same public result, held for now.
+
+## Refresh on the fixed bench (Oct 22)
+
+`MTAH_DFL_LABELS=hackathon uv run python scripts/benchmark.py`: hackathon-style labels (relabel
+v2) and the realistic degrader; the submission model (M2 + touches).
+
+| method | spellF1 | macroF1 | vs M2 | matches better |
+|---|---|---|---|---|
+| M2, switch 20 | 0.641 | 0.887 | +0.030 ± 0.002 | 7 / 7 |
+| M3 duration priors | 0.625 | 0.886 | +0.014 ± 0.001 | 7 / 7 |
+| M3 gap weighting κ=200 | 0.622 | 0.884 | +0.011 ± 0.001 | 7 / 7 |
+| **M2 learned** (switch 10) | 0.611 | 0.885 | — | — |
+| M2, switch 5 | 0.586 | 0.884 | −0.025 ± 0.002 | 0 / 7 |
+| M1 hmm | 0.534 | 0.814 | −0.077 ± 0.008 | 0 / 7 |
+| smooth50 | 0.275 | 0.616 | −0.335 ± 0.008 | 0 / 7 |
+
+Sensitivity: clean 0.679, ball only 0.659, hackathon 0.619, stress 0.593.
+
+Oracle gains: team +0.279, ball-gap frames +0.072, stoppage starts +0.039, short possessions
++0.038, dead/alive +0.033, restarts +0.026, ball always tracked +0.023, timing +0.020 (hand-overs
+±1 s: −0.035, an artefact of the window copy with v2-dated changes).
+
+Recall by duration: < 1 s 2%, 1–3 s 32%, 3–10 s 64%, ≥ 10 s 84%. By start: after a hand-over
+66%, after a stoppage 70%. Calibration error 0.009–0.010.
+
+Real match (all decoders): public 0.622 for M2 switch 10/20 and M3; rates 4.15–4.32.
+
+Scenarios (learned): pass past opponents 87%, interception 27%, restarts 59% / 63%, long stoppage
+97%, hold through a ball gap 46%, change during a ball gap 41%, change during a blackout 25%,
+dead ball visible 95%, slow play 75%, kick-off 12%.
+
+Reading: who has the ball (+0.28) is still the dominant loss; short possessions were mostly a DFL
+artefact (+0.24 -> +0.04); fewer changes win on the fixed bench, the reverse of DFL's labels.
+
+### Clean vs one degraded draw vs varied draws (Oct 22)
+
+M2 + touches trained on the v2 labels; scored on the fixed bench (3 seeds, switch 10):
+
+| trained on | bench (hackathon profile) | bench (stress) | real rate | public | public possessions (of 17) |
+|---|---|---|---|---|---|
+| clean data | 0.624 (−0.116 ± 0.007, 0/7) | 0.554 (−0.134, 0/7) | 3.95 | 0.492 | 9 |
+| one degraded draw (B_r) | 0.740 | 0.689 | 3.42 | 0.496 | 8 |
+| 3 varied draws, spread 0.25 | 0.746 (+0.006 ± 0.004, 4/7) | 0.699 (+0.010 ± 0.005, 5/7) | 3.38 | 0.330 | 6 |
+
+Degrading the training data is essential (clean −0.12). Varying the degradation adds nothing
+beyond noise and is worse on the public window: not adopted.
+
+### Ball detection in the tactical video, classical detector (Oct 22)
+
+`possession/video.py` (search window from the ball-filling prior + homography; bright moving
+blobs of the expected size; temporal linking). Self-check: hide the tracked ball on frames that
+have it, search, compare (aggregates only).
+
+Diagnostic at the tracked ball's pixel (1,500 frames): the ball is ~6 px wide (p10–p90 4.6–8.5);
+a bright moving blob is within 7 px of the projected ball (median) and within 40 px 95% of the
+time; but its saturation is not low (median 99: blur mixes it with the grass) and its motion vs
+t±2 is often weak (slow balls).
+
+Threshold sweep (72 settings, 1,000 hidden balls, first 40,000 frames): best settings find a
+candidate on 98.7% of frames, but only 24.7% within 1 m of the ball; median error 2.68 m vs 2.57 m
+for the ball-filling prior alone. Not adopted: hand-written rules cannot tell the ball from boots,
+socks or line fragments of the same size. (Two bugs fixed on the way: the self-check did not
+search the neighbour frames linking needs; linking was quadratic in candidates.)
