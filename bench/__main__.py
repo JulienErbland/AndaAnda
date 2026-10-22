@@ -45,13 +45,19 @@ def match_paths(selectors):
     groups = {
         "dfl": sorted(glob.glob(os.path.join(_dfl_dir(), "*.npz"))),
         "metrica": sorted(glob.glob(os.path.join(epts.METRICA_DIR, "metrica-game*.npz"))),
+        "pff": sorted(glob.glob(os.path.join(EXTERNAL_DIR, "pff", "*.npz"))),
         "hackathon": [epts.HACKATHON_PATH] if os.path.isfile(epts.HACKATHON_PATH) else [],
     }
     groups["all"] = groups["dfl"] + groups["metrica"]  # hackathon only when asked for by name
-    by_name = {Match.load(p).name: p for g in ("dfl", "metrica", "hackathon") for p in groups[g]}
+    by_name = None                 # loading every file to read its name is slow: only if needed
     paths = []
     for sel in selectors or ["dfl"]:
-        found = groups.get(sel) or ([by_name[sel]] if sel in by_name else None)
+        found = groups.get(sel)
+        if found is None:
+            if by_name is None:
+                by_name = {Match.load(p).name: p for g in ("dfl", "metrica", "hackathon", "pff")
+                           for p in groups[g]}
+            found = [by_name[sel]] if sel in by_name else None
         if not found:
             sys.exit("no match data for {!r}; try `python -m bench fetch`".format(sel))
         paths += [p for p in found if p not in paths]
@@ -66,6 +72,8 @@ def load_degraded(path, profile, seed):
     match = Match.load(path)
     if is_private(match):
         return match  # the real thing is already noisy
+    if match.name.startswith("pff-") and profile == "hackathon":
+        profile = "pff"  # its ball is already as missing as the real one: no extra gaps
     return degrade(match, profile, seed=seed + sum(map(ord, match.name)))
 
 
@@ -87,6 +95,9 @@ def cmd_fetch(args):
         for game in (1, 2):
             epts.fetch_metrica_csv(game)
         epts.fetch_metrica()
+    if args.what == "pff":                 # proprietary: download it yourself (README)
+        from . import pff
+        pff.fetch()
     if args.what in ("dfl-events", "all"):
         from . import dfl_events
         dfl_events.fetch(args.ids or None)
@@ -302,7 +313,7 @@ def main():
     sub = parser.add_subparsers(dest="cmd", required=True)
 
     p = sub.add_parser("fetch")
-    p.add_argument("what", choices=["dfl", "metrica", "dfl-events", "all"], nargs="?",
+    p.add_argument("what", choices=["dfl", "metrica", "dfl-events", "pff", "all"], nargs="?",
                    default="all")
     p.add_argument("--ids", nargs="*", help="DFL match ids, e.g. DFL-MAT-J03WOH")
     p.set_defaults(func=cmd_fetch)

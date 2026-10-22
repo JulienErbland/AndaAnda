@@ -107,6 +107,11 @@ PROFILES = {
     "ball-only": Profile(blackout_share=0, player_blackouts_per_min=0, player_missing=0,
                          tracklet_s=1e9, wrong_team=0, duplicates_per_min=0, player_noise_m=0),
     "clean": None,
+    # PFF broadcast tracking: its raw ball is already missing as often as the real tracking's
+    # (live ~35%, dead ~90%), so no extra ball gaps; everything else as the hackathon profile.
+    # Measured (degraded PFF vs real): gap-start ball speed p50/p90 2.26/6.1 vs 1.71/6.45, players
+    # within 3 m 0.93 vs 1.04, 20.0 players tracked vs 20.5. Track ends/min 27 vs 11 (camera cuts).
+    "pff": Profile(ball_missing_alive=0.0, ball_missing_dead=0.0, gap_from_ballout=False),
 }
 
 FPS = 25

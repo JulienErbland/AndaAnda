@@ -261,3 +261,13 @@ def test_vary_draws_neighbours_of_the_calibrated_profile():
         assert 0.85 < np.median(ratio) < 1.15 and ratio.std() > 0.1     # centred, really varied
     assert all(d.ball_missing_dead <= 0.9 for d in draws)
     assert vary(base, np.random.default_rng(0), 0.0) == base
+
+
+def test_pff_matches_are_held_out_by_fold_others_alone():
+    from possession.learned import N_FOLDS, groups_of
+    names = ["dfl-a", "dfl-b"] + ["pff-{}".format(i) for i in range(12)]
+    g = groups_of(names)
+    assert g["dfl-a"] == "dfl-a" and g["dfl-b"] == "dfl-b"
+    folds = {g[n] for n in names if n.startswith("pff-")}
+    assert len(folds) == N_FOLDS
+    assert groups_of(list(reversed(names))) == g        # order-independent

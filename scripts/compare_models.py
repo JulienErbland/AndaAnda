@@ -42,10 +42,11 @@ def cmd_eval(args):
            "switches": args.switches, "dfl": [], "hackathon": {}, "scenarios": {},
            "bench_rate": []}
     contexts, preds = [], {"m": {}}
-    for p in match_paths(["dfl"]):
+    for p in match_paths(args.matches):
         clean = Match.load(p)
         for seed in args.seeds:
-            seen = degrade(clean, prof, seed=seed + sum(map(ord, clean.name)))
+            pr_ = "pff" if clean.name.startswith("pff-") and args.profile == "hackathon" else prof
+            seen = degrade(clean, pr_, seed=seed + sum(map(ord, clean.name)))
             view = seen.without_labels()
             pr = learned.probabilities(view)
             for sw in args.switches:
@@ -136,6 +137,7 @@ def main():
     p.add_argument("--out", required=True)
     p.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--switches", type=float, nargs="+", default=[5, 7, 10, 14, 20])
+    p.add_argument("--matches", nargs="+", default=["dfl"], help="match groups, e.g. dfl pff")
     p.add_argument("--profile", choices=["hackathon", "stress"], default="hackathon",
                    help="degrader profile the DFL matches are scored under")
     p.set_defaults(func=cmd_eval)

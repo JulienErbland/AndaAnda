@@ -406,3 +406,25 @@ candidate on 98.7% of frames, but only 24.7% within 1 m of the ball; median erro
 for the ball-filling prior alone. Not adopted: hand-written rules cannot tell the ball from boots,
 socks or line fragments of the same size. (Two bugs fixed on the way: the self-check did not
 search the neighbour frames linking needs; linking was quadratic in candidates.)
+
+### PFF World Cup 2022 added (Oct 22)
+
+`bench/pff.py`: 64 matches, broadcast tracking (Sportlogiq) resampled 29.97 -> 25 fps; estimated
+players kept, ball visible-only (raw track; the event-smoothed ball would leak); labels from
+PFF's `home_ball` per possession sequence. Pooled: 4.67 possessions per live minute, durations
+p10/p50/p90 1.6 / 7.0 / 31.6 s (public 4.25, 2.2 / 7.6 / 38.1); ball missing 59%. Degrader
+profile "pff": no extra ball gaps (gap-start ball speed p50/p90 2.26/6.1 vs real 1.71/6.45).
+
+M2 + touches trained on DFL (v2 labels) + PFF, held out by group (each DFL match; PFF in 5
+folds): models_exp/P. Switch 10:
+
+| | DFL bench (3 seeds) | PFF held-out (64) | PFF rate pred / true | real rate | public | public possessions (of 17) |
+|---|---|---|---|---|---|---|
+| current submission | 0.611 | – | – | 4.32 | 0.622 | 10 |
+| B_r (DFL v2 only) | 0.740 | 0.483 | 3.71 / 4.72 | 3.42 | 0.496 | 8 |
+| P (DFL + PFF) | 0.692 | **0.579** (+0.096 ± 0.004, 64/64) | 3.39 / 4.72 | 3.35 | 0.586 | **11** |
+
+PFF reproduces the real-match under-changing (both models predict ~3.4–3.7 changes per live
+minute vs 4.72 true), which the DFL bench never showed: the first bench where the real problem
+is measurable with real labels. Next: tune P's switch penalty on the PFF folds (predicted rate
+= true), then check the real rate and public window.

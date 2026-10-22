@@ -395,3 +395,16 @@ with a hackathon-like rule so the bench measures the right definition of possess
 - [ ] learned patch classifier trained on THIS video, the tracked ball as free labels (59% of
       frames); go/no-go on the self-check (>= 60% within 1 m, error below the prior)
 - [ ] only then `detect` and compare M2 with/without filled balls on the real match
+
+---
+
+# PFF World Cup 2022 (Oct 22)
+
+- [x] `bench/pff.py` reader (64 matches, `python -m bench fetch pff` after downloading to
+      external/pff/raw/); labels from `home_ball`; degrader profile "pff"
+- [x] grouped held-out training (`learned train --with-pff`: DFL matches alone, PFF in 5 folds;
+      rows computed once, in parallel)
+- [x] P (DFL + PFF): PFF held-out 0.579 vs 0.483 (64/64); real 11/17 public possessions (best so
+      far), public 0.586; PFF reproduces the real under-changing (3.4 vs 4.72 per live min)
+- [ ] tune P's switch penalty on the PFF folds so the predicted rate matches the truth; check the
+      real rate / public window; candidate to replace the submission
