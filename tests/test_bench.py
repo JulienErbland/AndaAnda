@@ -190,7 +190,8 @@ def test_degraded_positions_are_smooth_like_the_real_tracking():
     must be a slow offset (tens of cm), not frame-to-frame jitter."""
     clean = _toy_match()
     keep_slots = Profile(blackout_share=0, player_blackouts_per_min=0, player_missing=0,
-                         tracklet_s=1e9, wrong_team=0, duplicates_per_min=0)
+                         tracklet_s=1e9, wrong_team=0, duplicates_per_min=0,
+                         ball_smooth_s=0)   # the deliberate ball smoothing has its own test
     m = degrade(clean, keep_slots, seed=0)
     pitch = np.asarray(m.pitch)
     for added in ((m.players[..., :2] - clean.players[..., :2]) * pitch,
@@ -220,3 +221,31 @@ def test_metrica_csv_reader_and_events(tmp_path):
     ev = epts.csv_events(tmp_path / "e.csv")
     assert [e["type"]["name"] for e in ev] == ["SET PIECE", "PASS"]
     assert ev[1]["start"]["frame"] == 1 and ev[1]["end"]["frame"] == 3 and ev[1]["to"] == "P2"
+
+
+def test_ball_smoothing_rounds_kicks_and_keeps_gaps():
+    from bench.degrade import smooth_track
+    t = np.arange(100)
+    xy = np.zeros((100, 2))
+    xy[:, 0] = np.where(t < 50, 0.0, (t - 50) * 1.0)       # a kick at frame 50: 25 m/s at once
+    xy[70:75] = np.nan
+    out = smooth_track(xy, 0.2)
+    acc = np.abs(np.diff(out[:, 0], 2))
+    assert np.nanmax(acc) < 0.25                           # raw: 1.0 per frame^2 at the kick
+    assert np.isnan(out[70:75]).all() and not np.isnan(out[:70]).any()
+    assert abs(out[90, 0] - 40.0) < 0.5                    # steady motion is left alone
+
+
+def test_realism_knobs_switch_off_cleanly_and_work_when_on():
+    from dataclasses import replace as _r
+    m = _toy_match(n=6000)
+    off = Profile(ball_smooth_s=0, ball_false_per_min=0, break_duel_gain=0, gap_from_ballout=False)
+    a = degrade(m, off, seed=3)
+    b = degrade(m, _r(off, ball_false_in_gaps=0.7, gap_ballout_lead_s=2.0), seed=3)
+    assert np.array_equal(a.ball, b.ball, equal_nan=True)            # off = unaffected by the
+    assert np.array_equal(a.players, b.players, equal_nan=True)      # dependent sub-knobs
+    f = degrade(m, _r(off, ball_false_per_min=20), seed=3)
+    step = np.linalg.norm(np.diff(f.ball[:, :2] * np.asarray(f.pitch), axis=0), axis=1)
+    step0 = np.linalg.norm(np.diff(a.ball[:, :2] * np.asarray(a.pitch), axis=0), axis=1)
+    assert np.nansum(step > 2) > np.nansum(step0 > 2) + 5            # false detections jump
+    assert np.array_equal(f.players, a.players, equal_nan=True)      # players untouched

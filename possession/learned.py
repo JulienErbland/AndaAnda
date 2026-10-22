@@ -122,9 +122,12 @@ def probabilities(match):
     return _model_for(match).predict(X_)
 
 
-def decode(match, p=Params(), probs=None):
+def decode(match, p=Params(), probs=None, bonus=None):
+    """bonus: optional (T, 3) scores added before decoding (e.g. tags.bonus, Smart Tagging)."""
     probs = probabilities(match) if probs is None else probs
     scores = p.weight * np.log(np.clip(probs, 1e-4, 1.0))
+    if bonus is not None:
+        scores = scores + bonus
     return hmm.decode_scores(match, scores, hmm.Params(switch=p.switch, stop=p.stop,
                                                        restart=p.restart))
 

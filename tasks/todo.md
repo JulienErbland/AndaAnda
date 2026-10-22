@@ -316,3 +316,81 @@ team centroids), plus a model of its own error radius. Leave-one-match-out.
       gaps still worse than "stays where last seen" (0.9 vs 0.4 m in the first second). v2 radius
       honest (77% inside the 80% radius). Not a team signal by itself (nearest player 50%).
 - [ ] then: touches and carrier on the filled ball where the radius is small
+
+---
+
+# Fixes for the open issues (Oct 22)
+
+## 1. Fix the bench: hackathon-style labels on DFL
+The hackathon GT is a rule applied to corrected tracking; DFL gives clean tracking. Relabel DFL
+with a hackathon-like rule so the bench measures the right definition of possession.
+- [x] rule on clean tracking (`bench/relabel.py`, `tests/test_relabel.py`): possession changes only on a control by the other team (touches.py
+      control episodes); a loose / contested ball stays with the last team; dead from DFL's
+      BallStatus
+- [x] tune its few knobs (control duration, distance) until the relabelled DFL matches the public
+      labels: ~4.3 possessions per live minute, durations p10 / p50 / p90 ~ 2.2 / 7.6 / 38 s
+- [x] `python -m bench relabel [--calibrate]` -> external/dfl_hk/; `MTAH_DFL_LABELS=hackathon`
+      switches every script to them; originals untouched. Calibration: control >= 0.4 s within
+      1.5 m gives rate 4.35 (public 4.25), p10/p50/p90 2.2/8.8/31.3 s (public 2.2/7.6/38.1);
+      DFL original 8.30, 0.8/3.7/18.6. 85% of live frames agree with DFL's team.
+- [x] retrain M2 + touches on the new labels (models_exp/hk): bench 0.586 -> 0.732, but real rate
+      3.55 and public 0.433 -> not adopted. Bench->real shift found: the real ball path is
+      smoothed (deflections 2.1/min vs 6.1 on the bench, controls 5.6 vs 7.9).
+- [x] degrader: ball smoothing 0.20 s (`Profile.ball_smooth_s`), fitted on the real ball's
+      acceleration percentiles, checked on touch rates (deflections 6.1 -> 2.3/min, real 2.1)
+- [ ] retrain on the smoothed bench: A_s (DFL labels), B_s (main rule), B_lo / B_hi (neighbouring
+      rules, robustness); compare on the main labels and on the real rate
+- [ ] re-run the benchmark and the scenarios on the fixed bench
+
+## 2. Re-test carrier and path on the fixed bench
+- [ ] M2 + carrier features vs M2 + touches, paired by match, at the real-match change rate
+- [x] path decoder used narrowly (`possession/snap.py`): −0.012 on DFL labels, +0.016 on the
+      hackathon-style labels (circular), no change on the real match -> not adopted
+- [x] where Metrica's labels put a change (`scripts/change_timing.py`, 12 public hand-overs):
+      nearest control start by the new team +0.94 s median (8% within 0.5 s); nearest touch of
+      any kind +0.12 s (33% within 0.5 s) -> changes sit at the new team's FIRST TOUCH
+- [x] relabel rule v2 (`Rule(date_from_touch=True)`, external/dfl_hk_v2): same rate 4.35 and
+      durations; change timing vs touches now like the real labels (control start +1.08 s, 27%
+      within 0.5 s; real +0.94 s, 8%; v1 +0.04 s, 60%)
+- [x] v2 is the default (v1 kept in external/dfl_hk_v1)
+- [ ] full path decoder again, with M2's team evidence down-weighted, for comparison
+
+## 3. Degrader realism
+- [x] measured (`scripts/degrader_realism.py`), real vs bench: ball jumps 1.12 vs 0.13/min;
+      implied speed across <2 s gaps 66 vs 0.6 m/s (the ball reappears elsewhere); gap-start
+      ball speed p50 1.7 vs 0.5 m/s, crowd 1.04 vs 0.57; track ends near an opponent 33% vs 12%
+- [x] knobs added, off by default (byte-identical when off, tested): ball_false_per_min /
+      ball_false_s, break_duel_gain / duel_m; gap-start weights already existed
+- [x] calibrated and set as defaults (+ structural knobs: false blips in gaps, gaps from
+      ball-out with a share, duel-weighted breaks, tracklet_s 300); remaining mismatches: gap-start
+      speed tail, implied speed across short gaps
+- [x] retrain on the realistic bench with v2 labels: B_r bench 0.740 but real rate 3.42, public
+      0.496, 8/17 found (B_s: 3.22, 0.330, 6/17) -> better transfer, gap not closed, not adopted;
+      A_r +0.038 over the submission on the bench, same public (0.622, 10/17) -> held
+- [ ] remaining realism gaps: false blips (implied speed across short gaps 13 vs 66 m/s),
+      gap-start speed tail; then ball detection from video (item 5)
+- [ ] varied degradation in training: several seeds, gap length / blackouts / noise drawn
+      around the calibrated values
+- [ ] check: M2 trained clean vs one degraded draw vs varied draws, scored under hackathon and
+      stress profiles
+
+## 4. Smart Tagging
+- [x] reader for the hackathon tags (`possession/tags.py`); Team meaning per code measured on the
+      public window (`scripts/tag_agreement.py`): attacking codes = team with the ball, defending
+      codes = the other team, box / final third = no information
+- [x] (dropped) simulating tags on DFL: the weight would only reflect the invented noise level;
+      used the simpler, conservative public-window weight instead
+- [x] soft evidence in the decoder, one piece per tag (log-odds 0.7 spread over its frames;
+      `learned.decode(bonus=...)`); set pieces not used yet
+- [x] check on the real match: < 0.01% of frames change; M2 agrees with the tags on 85% of their
+      live frames -> redundant at a safe weight; NOT used in the submission
+
+## 5. Ball gaps from the tactical video
+- [ ] ball detector run locally on the tactical video (no cloud), small-object model
+      (e.g. a YOLO / TrackNet-style detector fine-tuned on public football data)
+- [ ] map detections to the pitch with the per-frame homography; keep only frames where the
+      tracking has no ball, with a confidence
+- [ ] validate without looking at the data: agreement with the tracked ball where both exist
+      (aggregate distance), share of gap frames recovered
+- [ ] feed recovered balls into the tracking before features/touches; compare on the real match's
+      rate and durations

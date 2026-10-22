@@ -19,6 +19,8 @@ simulated:
 - identity switches that can cross teams
   -> a fraction of tracklets land in a slot of the wrong team (team-level features are all a
      method can use, so a same-team switch is invisible and not simulated);
+- the ball's path is smoothed (`ball_smooth_s`), as a filtering tracker does: kicks and
+  deflections come out rounded (measured Oct 22: real deflections 2.1/min, unsmoothed bench 6.1);
 - position error: SMOOTH, not jitter. The real ATD's frame-to-frame jitter is tiny (median
   second difference 0.1 cm for players, 0.9 cm for the ball; measured Oct 20), so its errors are
   slow offsets. Noise is white noise low-passed over `noise_smooth_s` and rescaled to the given
@@ -63,12 +65,40 @@ class Profile:
     # Players.
     player_missing: float = 0.005      # independent hiding, on top of blackouts (rare: measured)
     player_gap_s: float = 3.0
-    tracklet_s: float = 400.0          # mean time between identity breaks
+    tracklet_s: float = 300.0          # mean time between identity breaks (re-fitted Oct 22
+                                       # with the duel weighting: 11.3 track ends/min, real 11.3)
     wrong_team: float = 0.02           # fraction of tracklets assigned to a wrong-team slot
     duplicates_per_min: float = 0.5
     duplicate_s: float = 2.0
     player_noise_m: float = 0.2
     noise_smooth_s: float = 1.0       # correlation time of the position error
+    # The real tracker smooths the ball's path (kicks and deflections come out rounded):
+    # Gaussian filter of this std. Calibrated Oct 22 by scripts/calibrate_ball_smoothing.py on the
+    # whole real match (|acceleration| p90/p99 over 1-4 frames: real 18/37 m/s^2, smoothed DFL
+    # 17/42, unsmoothed 21-37/103-356); checked on touch rates (deflections/min real 2.1, bench
+    # 6.1 -> 2.3). ponytail: one knob; the real ball also has a slow wobble (median |a| 5.7 vs
+    # 3.1 m/s^2) that a second noise term would add if it ever matters.
+    ball_smooth_s: float = 0.20
+    # Calibrated Oct 22 on the real tracking (scripts/degrader_realism.py measures them,
+    # scripts/calibrate_realism.py fits them; aggregates only, no labels):
+    # false ball detections (real: 1.1 one-frame jumps > 2 m per minute, bench 0.13; after gaps
+    # under 2 s the real ball reappears ~66 m/s away), placed at a random player's position for
+    # ~ball_false_s, anywhere in the graded frames (inside a gap they split it);
+    ball_false_per_min: float = 0.5    # jumps/min: real 1.12, bench 0.13 -> 0.98
+    ball_false_s: float = 0.3
+    ball_false_in_gaps: float = 0.0     # share of false blips placed inside ball gaps (fit: 0)
+    # Gaps covering a stoppage start when the ball LEAVES play (real gap starts: ball speed p50
+    # 1.7 m/s; bench 0.5): a gap starting inside a dead stretch is moved back to just before it
+    # (lead U(0, gap_ballout_lead_s)), keeping its end.
+    # gap-start ball speed p50: real 1.71, bench 0.49 -> 1.82; crowd 1.04: 0.62 -> 0.93.
+    # ponytail: the p90 overshoots (12 vs 6.4 m/s); a speed-dependent lead would fix the tail.
+    gap_from_ballout: bool = True
+    gap_ballout_lead_s: float = 0.5
+    gap_ballout_share: float = 0.5     # share of such gaps that move (the rest start in the stoppage)
+    # identity breaks in duels (real: 33% of track ends have an opponent within 2 m, bench 12%):
+    # break rate x (1 + gain) near an opponent, rescaled to keep the mean rate (tracklet_s).
+    break_duel_gain: float = 80.0     # track ends near an opponent: real 33%, bench 12% -> 33%
+    duel_m: float = 2.0
 
 
 PROFILES = {
@@ -91,6 +121,10 @@ def degrade(match, profile="hackathon", seed=0):
     metres = np.asarray(match.pitch, dtype=np.float32)
 
     ball = match.ball.copy()
+    if profile.ball_smooth_s > 0:
+        from .epts import derive_speed
+        ball[:, :2] = smooth_track(ball[:, :2], profile.ball_smooth_s)
+        ball[:, 2] = derive_speed(ball[:, :2], match.pitch)
     missing = _ball_gaps(match, profile, rng)
     ball[missing] = np.nan
     ball[:, :2] += _smooth_noise(rng, (len(ball), 2), profile.ball_noise_m,
@@ -100,7 +134,45 @@ def degrade(match, profile="hackathon", seed=0):
                                            _blackouts(missing, match.players.shape[1], profile, rng))
     players[..., :2] += _smooth_noise(rng, players[..., :2].shape, profile.player_noise_m,
                                       profile.noise_smooth_s) / metres
+    if profile.ball_false_per_min > 0:      # drawn last: off leaves every other draw unchanged
+        _false_ball(ball, match, profile, rng)
     return replace(match, ball=ball, players=players, slot_team=slot_team)
+
+
+def _false_ball(ball, match, p, rng):
+    """In place: short spans where the 'ball' is another object near a random player."""
+    g = np.flatnonzero(graded_mask(match))
+    if not len(g):
+        return
+    n_false = rng.poisson(p.ball_false_per_min * len(g) / FPS / 60)
+    gap = np.flatnonzero(np.isnan(ball[g, 0]))
+    in_gap = rng.random(n_false) < p.ball_false_in_gaps
+    starts = np.where(in_gap & (len(gap) > 0), g[gap[rng.integers(0, max(len(gap), 1), n_false)]]
+                      if len(gap) else 0, rng.choice(g, size=n_false))
+    for t0 in starts:
+        t1 = min(match.n_frames, t0 + max(1, int(rng.exponential(p.ball_false_s * FPS))))
+        who = np.flatnonzero(~np.isnan(match.players[t0, :, 0]))
+        if not len(who):
+            continue
+        s = rng.choice(who)
+        ball[t0:t1, :2] = match.players[t0:t1, s, :2] + rng.normal(0, 0.5, 2) / np.asarray(
+            match.pitch, dtype=np.float32)
+        ball[t0:t1, 2] = np.nan_to_num(match.players[t0:t1, s, 2])
+
+
+def smooth_track(xy, sigma_s):
+    """Gaussian smoothing along time, NaN-aware: never blends across missing frames' values,
+    and missing frames stay missing."""
+    sig = sigma_s * FPS
+    r = int(np.ceil(3 * sig))
+    k = np.exp(-0.5 * (np.arange(-r, r + 1) / sig) ** 2)
+    ok = ~np.isnan(xy[:, 0])
+    w = np.convolve(ok.astype(np.float64), k, "same")
+    out = np.full(xy.shape, np.nan, dtype=xy.dtype)
+    for c in range(xy.shape[1]):
+        v = np.convolve(np.where(ok, xy[:, c], 0.0).astype(np.float64), k, "same")
+        out[ok, c] = (v[ok] / w[ok]).astype(xy.dtype)
+    return out
 
 
 def _smooth_noise(rng, shape, std, smooth_s):
@@ -151,9 +223,23 @@ def _ball_gaps(match, p, rng):
     targets = {"alive": (alive & graded, p.ball_missing_alive),
                "dead": (dead & graded, p.ball_missing_dead)}
 
+    if p.gap_from_ballout:
+        lead = (rng.random(n) * p.gap_ballout_lead_s * FPS).astype(np.int64)
+        moves = rng.random(n) < p.gap_ballout_share
+        dead_start = np.flatnonzero(dead & ~np.concatenate(([False], dead[:-1])))
+        run_start = np.zeros(n, dtype=np.int64)
+        if len(dead_start):
+            idx = np.searchsorted(dead_start, np.arange(n), side="right") - 1
+            run_start = np.where(idx >= 0, dead_start[np.maximum(idx, 0)], 0)
+
     def cover():
         prob = weight * np.where(dead, scale["dead"], scale["alive"])
-        return _gap_cover(prob, lengths, u) | already
+        c = _gap_cover(prob, lengths, u)
+        if p.gap_from_ballout:
+            starts = np.flatnonzero(c & ~np.concatenate(([False], c[:-1])))
+            for s0 in starts[dead[starts] & moves[starts]]:
+                c[max(0, run_start[s0] - lead[s0]):s0] = True   # begin as the ball leaves play
+        return c | already
 
     # Coordinate bisection on log-scale: the two rates interact only through gaps that run
     # across an alive/dead boundary, so two rounds are enough.
@@ -186,6 +272,15 @@ def _blackouts(ball_missing, n_people, p, rng):
     return hide
 
 
+def _near_opponent(match, person, radius_m):
+    """(T,) True where an opponent of `person` stands within radius_m (clean tracking)."""
+    m = np.asarray(match.pitch, dtype=np.float32)
+    opp = match.slot_team != match.slot_team[person]
+    d = np.linalg.norm((match.players[:, opp, :2] - match.players[:, person:person + 1, :2]) * m,
+                       axis=-1)
+    return (np.nan_to_num(d, nan=np.inf) < radius_m).any(axis=1)
+
+
 def _fragment_players(match, p, rng, blackout):
     """(players, slot_team) after hiding, fragmenting, duplicating and repacking into slots."""
     n, s0, _ = match.players.shape
@@ -197,7 +292,12 @@ def _fragment_players(match, p, rng, blackout):
         hidden = _gap_cover(np.full(n, start), rng.geometric(1 / gap_len, n), rng.random(n)) \
             if start else np.zeros(n, dtype=bool)
         visible = present & ~hidden & ~blackout[:, person]
-        breaks = rng.random(n) < 1 / (p.tracklet_s * FPS)
+        rate = np.full(n, 1 / (p.tracklet_s * FPS))
+        if p.break_duel_gain > 0:
+            duel = _near_opponent(match, person, p.duel_m)
+            w = 1 + p.break_duel_gain * duel
+            rate = rate * w / max(w[present].mean() if present.any() else 1.0, 1e-9)
+        breaks = rng.random(n) < rate
         edges = np.flatnonzero(np.diff(np.concatenate(([0], visible.astype(np.int8), [0]))))
         for t0, t1 in zip(edges[::2], edges[1::2]):
             cuts = [t0] + [t for t in np.flatnonzero(breaks[t0:t1]) + t0 if t > t0] + [t1]

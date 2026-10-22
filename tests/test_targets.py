@@ -19,15 +19,17 @@ pytestmark = pytest.mark.slow
 
 METHOD = "learned"
 
+# Re-based Oct 22 on the realistic degrader (ball smoothing, false blips, gaps from ball-out,
+# duel breaks): the same submission model scores lower on the harder bench, not a regression.
 FLOORS = {
-    "spell_f1_mean": 0.53,          # 0.550 (M2 + touches, Oct 21)
+    "spell_f1_mean": 0.50,          # 0.516 on the realistic bench (0.550 on the Oct 21 bench)
     "macro_f1": 0.87,               # 0.890
     "pass_past_opponents": 0.92,    # 95%
     "long_stoppage": 0.96,          # 99%
     "dead_ball_visible": 0.88,      # 93%
     "duel_flurry": 0.70,            # 74%
     "slow_play": 0.74,              # 83%
-    "interception": 0.37,           # 40%: direction 2 target reached Oct 21
+    "interception": 0.29,           # 31% on the realistic bench (40% on the Oct 21 bench)
 }
 
 TARGETS = [

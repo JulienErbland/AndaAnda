@@ -152,3 +152,194 @@ the filled ball is not a team signal by itself.
 - Main risk: the bench's labels define possession differently (DFL changes it twice as often), so
   DFL gains must be read at the real match's change rate. Next fix: relabel DFL with a
   hackathon-style rule matched to the public labels' rate and durations.
+
+## Fixing the bench: hackathon-style labels on DFL (Oct 22)
+
+`bench/relabel.py`: dead from DFL's BallStatus; possession changes only when the other team
+controls the ball (>= control_s within near_m, moving with it); everything else keeps the last
+team. Calibrated against the public labels (17 possessions, so targets with error bars).
+
+| labels | possessions / live min | durations p10 / p25 / p50 / p75 / p90 (s) |
+|---|---|---|
+| DFL original | 8.30 | 0.8 / 1.7 / 3.7 / 8.5 / 18.6 |
+| control 0.2 s, 1.0 m | 4.34 | 2.0 / 4.3 / 8.8 / 18.0 / 31.3 |
+| **control 0.4 s, 1.5 m (chosen)** | **4.35** | **2.2 / 4.3 / 8.8 / 17.8 / 31.3** |
+| control 0.6 s, 2.0 m | 4.13 | 2.4 / 4.8 / 9.4 / 19.1 / 32.4 |
+| control 1.0 s, 1.5 m | 3.21 | 3.2 / 6.4 / 13.0 / 24.1 / 41.5 |
+| public labels | 4.25 | 2.2 / 3.5 / 7.6 / 20.0 / 38.1 |
+
+Per match, the chosen rule gives 3.76–5.18 possessions per live minute. The relabelled team
+agrees with DFL's on 85% of live frames: the definitions differ mostly in short changes.
+Caveat: the rule uses the same notion of control as our touch detector, so a model with touch
+features may find these labels a little easier than Metrica's real (unknown) rule.
+
+### Retraining on the fixed labels (Oct 22)
+
+`scripts/compare_models.py` (3 seeds, 7 matches, scored on the hackathon-style labels):
+
+| switch 10 | DFL spellF1 (new labels) | predicted rate on bench (true 4.38) | real rate | public |
+|---|---|---|---|---|
+| A: M2 + touches, trained on DFL's labels | 0.586 | 5.38 | 4.32 | 0.622 |
+| B: same, trained on the new labels | **0.732** (+0.146 ± 0.006, 7/7) | 4.14 | **3.55** | **0.433** |
+
+B is far better and well calibrated on the bench (interception 24% → 56%), but on the real
+match it changes possession too rarely at every switch (3.37–3.64) and the public window drops.
+Not adopted. Both models lose 0.6–1.0 changes per live minute from bench to real match.
+
+Touch-detector events per graded minute (`scripts/touch_rates.py`):
+
+| | ball seen | controls | control-team changes | deflections | contacts |
+|---|---|---|---|---|---|
+| DFL clean | 100% | 10.6 | 1.91 | 7.7 | 18.9 |
+| DFL degraded (bench) | 61% | 7.9 | 1.48 | 6.1 | 14.7 |
+| real hackathon tracking | 59% | 5.6 | 1.34 | **2.1** | 12.1 |
+
+Gaps are well calibrated, but the real ball's path is much smoother (a third of the sharp
+turns): the real tracker most likely filters the ball. The degrader does not, so bench models
+expect more touch evidence than the real tracking gives. Next: calibrate a ball smoothing in the
+degrader on these rates (aggregates only), then retrain B and re-check the real rate.
+
+### Ball smoothing in the degrader (Oct 22)
+
+`scripts/calibrate_ball_smoothing.py`: one knob (Gaussian std of the ball path), fitted on the
+whole real match's |acceleration| percentiles over 1/2/4 frames (no labels, no model output).
+
+| ball | a1 p50 / p90 / p99 | a4 p50 / p90 / p99 (m/s²) |
+|---|---|---|
+| real hackathon | 5.7 / 18.3 / 36.8 | 5.7 / 18.1 / 37.0 |
+| bench, no smoothing | 9.8 / 37.2 / 356.4 | 2.7 / 22.1 / 103.0 |
+| **bench, smoothing 0.20 s (chosen)** | 3.1 / 17.4 / 42.0 | 3.1 / 17.1 / 40.2 |
+
+Check (not fitted): touch events per minute, mean [range over 7 DFL matches].
+
+| | controls | deflections | contacts |
+|---|---|---|---|
+| bench, no smoothing | 7.9 [6.4–9.0] | 6.1 [5.1–9.2] | 14.7 [12.5–20.7] |
+| bench, smoothing 0.20 s | 6.1 [5.0–7.1] | 2.3 [2.0–2.5] | 10.2 [7.5–12.6] |
+| real hackathon | 5.6 | 2.1 | 12.1 |
+
+Not matched: the real ball's median |acceleration| (5.7 vs 3.1), a slow wobble a second noise
+term could add. Robustness label rules built: lo (0.2 s, 1.0 m) and hi (0.6 s, 2.0 m).
+
+### Smart Tagging (Oct 22)
+
+`possession/tags.py`, `scripts/tag_agreement.py`, `scripts/eval_tags.py`. What `Team` means per
+code, measured on the public window (share of the tags' live frames with the ball at the tagged
+team; 1–5 tags per code there):
+
+| codes | with tagged team | meaning |
+|---|---|---|
+| build up, creating chances, long ball, progression, attacking transition | 67–100% | team with the ball |
+| defending in attacking / middle / defensive third, defensive transition | 0–33% | team without the ball |
+| players in the box, ball in the box, ball in final third | 44–54% | no team information |
+| set pieces | 96%, restarting team 2/2 | restarting team (when not N/A) |
+
+Used as one piece of evidence per tag (log-odds 0.7, from the lowest agreement, 67%, spread over
+the tag's frames) added to M2's H/A scores. Real match: frames changed < 0.01% (0.12% at 4× the
+weight), rate 4.32 and public 0.622 unchanged. M2 already agrees with the tags' team on 84.9%
+of their live frames; it disagrees on 32 of 306 informative tags, and nothing tells who is right.
+Not used in the submission (redundant at a safe weight; a stronger one cannot be validated).
+
+### Snapping hand-overs to the control frame (Oct 22)
+
+`possession/snap.py`: moves each of M2's direct H <-> A changes onto the start of the nearest
+control by the new team (within 2 s); adds no changes. Current model, smoothed bench, seed 0:
+
+| bench labels | M2 | M2 + snap | paired difference |
+|---|---|---|---|
+| DFL original | 0.508 | 0.496 | −0.012 ± 0.003 (0/7) |
+| hackathon-style | 0.593 | 0.609 | +0.016 ± 0.003 (7/7) |
+| real match | rate 4.32, public 0.622 | rate 4.32, public 0.622 | none |
+
+Not adopted: the gain on the hackathon-style labels is circular (they place changes at control
+starts by construction); DFL's labels place them elsewhere. Which matches Metrica's rule is
+unknown. Possible check (aggregates only): distance of the public window's changes to the
+nearest control start by the new team.
+
+Change timing in the public window (`scripts/change_timing.py`, 12 H <-> A changes, real
+tracking): nearest control start by the new team is +0.94 s after the label change (quartiles
+−3.3 / +3.4 s, 8% within 0.5 s); nearest touch of any kind is +0.12 s (−0.7 / +1.0 s, 33% within
+0.5 s). Metrica's labels change near the new team's first touch, not at its control start, so
+the relabel rule gets the count right but probably dates changes late. Next: rule v2.
+
+### Relabel v2 and degrader realism (Oct 22)
+
+Relabel v2 dates each change from the new team's first touch (the control still decides it):
+same rate (4.35) and durations, and the timing of changes vs detected touches now resembles the
+real labels.
+
+| labels | to new team's control start: median, within 0.5 s | to any touch: median, within 0.5 s |
+|---|---|---|
+| public labels (real, 12 changes) | +0.94 s, 8% | +0.12 s, 33% |
+| DFL original | +1.16 s, 15% | +0.04 s, 42% |
+| relabel v1 | +0.04 s, 60% | +0.00 s, 68% |
+| relabel v2 | +1.08 s, 27% | +0.36 s, 46% |
+
+Things the degrader did not model (`scripts/degrader_realism.py`):
+
+| | real | bench mean [range] |
+|---|---|---|
+| ball jumps > 2 m in one frame, per min | 1.12 | 0.13 [0.07–0.33] |
+| implied speed across gaps < 2 s | 66 m/s | 0.6 m/s |
+| gap start: ball speed p50 / p90 | 1.7 / 6.4 m/s | 0.5 / 1.6 m/s |
+| gap start: players within 3 m | 1.04 | 0.57 |
+| track ends per min | 11.3 | 11.0 |
+| track ends with an opponent within 2 m | 33% | 12% |
+
+New off-by-default knobs: false ball detections, identity breaks in duels; calibration pending.
+
+### Retraining on the smoothed bench + robustness (Oct 22)
+
+All scored on the main hackathon-style labels (3 seeds), switch 10:
+
+| model | bench spellF1 | bench rate pred / true | real rate | public | public-window possessions (true 17) |
+|---|---|---|---|---|---|
+| current submission (M2 + touches, unsmoothed bench) | – | – | 4.32 | 0.622 | 10 |
+| A_s: DFL labels, smoothed bench | 0.628 | 5.03 / 4.38 | 3.90 | 0.622 | 10 |
+| B (v1 labels, unsmoothed) | 0.732 | 4.14 / 4.38 | 3.55 | 0.433 | 7 |
+| B_s: v1 labels, smoothed | 0.735 (+0.106 ± 0.005, 7/7) | 4.18 / 4.38 | 3.22 | 0.330 | 6 |
+| B_lo: rule 0.2 s / 1.0 m | 0.731 (+0.102, 7/7) | 4.07 / 4.38 | 3.23 | 0.365 | 6 |
+| B_hi: rule 0.6 s / 2.0 m | 0.730 (+0.102, 7/7) | 4.00 / 4.38 | 3.17 | 0.450 | 7 |
+
+- Robust to the rule: lo / main / hi give the same picture.
+- Ball smoothing made the bench's ball realistic but widened the bench -> real gap (B 3.55 ->
+  3.22, A 4.32 -> 3.90): it is not what hides real hand-overs.
+- Every model, the submission included, sees far fewer changes in the public window than there
+  are (10 / 17 at best): hand-overs are much harder to see in the real tracking than on the
+  bench. Suspects: false ball blips inside gaps, gaps starting as the ball leaves play, identity
+  breaks in duels (structural knobs added; calibration v2 running).
+
+### Degrader realism v2: structural knobs, calibrated (Oct 22)
+
+New defaults (bench/degrade.py): false ball blips 0.5/min; stoppage gaps start as the ball
+leaves play for half of them (lead ≤ 0.5 s); identity breaks ×81 near an opponent, mean track
+length 300 s. All 7 DFL matches, mean [range]:
+
+| | real | bench before | bench now |
+|---|---|---|---|
+| ball jumps per min | 1.12 | 0.13 | 0.97 [0.73–1.23] |
+| gap start: ball speed p50 | 1.71 | 0.49 | 2.24 [0.99–3.54] |
+| gap start: ball speed p90 | 6.45 | 1.63 | 12.5 [10.7–13.8] (overshoot) |
+| gap start: players within 3 m | 1.04 | 0.57 | 0.96 [0.71–1.12] |
+| implied speed, gaps < 2 s | 66 m/s | 0.6 | 13 [6–28] (still low) |
+| implied speed, gaps 2–10 s | 1.16 | 0.13 | 2.4 [0.8–3.6] |
+| track ends per min | 11.3 | 11.0 | 11.2 [9.7–12.8] |
+| track ends near an opponent | 33% | 12% | 35% [32–39%] |
+
+Relabel v2 is now the default (external/dfl_hk); v1 kept in external/dfl_hk_v1.
+
+### Retraining on the realistic bench, v2 labels (Oct 22)
+
+Scored on the v2 labels, 3 seeds, switch 10:
+
+| model | bench spellF1 | bench rate pred / true | real rate | public | public possessions (of 17) |
+|---|---|---|---|---|---|
+| current submission | 0.611 | 5.21 / 4.38 | 4.32 | 0.622 | 10 |
+| A_r: DFL labels, realistic bench | 0.649 (+0.038 ± 0.007 vs submission, 7/7) | 5.11 / 4.38 | 3.98 | 0.622 | 10 |
+| B_r: v2 labels, realistic bench | 0.740 (+0.091 ± 0.006 vs A_r, 7/7) | 4.25 / 4.38 | 3.42 | 0.496 | 8 |
+| (B_s: v1 labels, smoothed only) | 0.735 | 4.18 / 4.38 | 3.22 | 0.330 | 6 |
+
+The structural realism knobs improved transfer (B: 6 -> 8 public possessions, public 0.33 ->
+0.50, rate 3.22 -> 3.42) but did not close the bench -> real gap. Not adopted: B_r (the real-match
+evidence still prefers the current behaviour); A_r is a small, consistent bench gain with the
+same public result, held for now.
