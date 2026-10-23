@@ -449,3 +449,29 @@ LLC proprietary information", and PFF's general Terms of Use (pff.com/terms) for
 machine learning or training of artificial intelligence models" and derivative works, unless
 supplemental terms say otherwise. Until the download form's own terms are checked, P is not a
 submission candidate.
+
+### Which possessions are missed (DFL, Oct 23)
+
+`scripts/diagnose_changes.py` (DFL v2 labels, degraded seed 0, held-out models, switch 10): every
+true hand-over, by start, the new team's first DFL event within 1 s, duration and ball
+visibility, with recall at IoU 0.5 and P(new team) (max of a 1 s running mean).
+
+| | submission | B_r |
+|---|---|---|
+| recall, all 1,592 hand-overs | 0.67 | 0.73 |
+| recall 0-2 s / 2-5 s / 5-15 s / >15 s | 0.19 / 0.46 / 0.75 / 0.85 | 0.24 / 0.54 / 0.80 / 0.91 |
+| share of misses under 5 s | 56% | 60% |
+| recall turnover, ball missing (173) | 0.51 | 0.47 |
+| misses whose P(new team) never reaches 0.5 | 32% | 38% |
+
+Submission misses by cause: wrong team 35%, predicted dead 26%, boundary 16%, merged 13%,
+split 11%; 66% of transitions found within 2 s, mean |lag| 13.9 frames.
+
+Two different problems. (1) Short possessions (< 5 s, over half the misses): P(new team) for a
+missed one peaks at a median 0.36 (0-2 s) / 0.59 (2-5 s), so the model barely sees them; and a
+switch penalty that charges per change suppresses them even when it does. (2) Longer missed
+possessions are seen (median peak 0.86-0.98) but lost to the wrong team at the start, a dead
+label over live play, or boundaries. Worst contexts: turnovers with the ball missing, deflections
+/ clearances (OtherBallAction, recall 0.53), throw-ins (19% of misses), and turnovers with no
+event of the new team within 1 s (30% of misses: contested balls, where the label rule itself
+is least certain).
