@@ -475,3 +475,24 @@ label over live play, or boundaries. Worst contexts: turnovers with the ball mis
 / clearances (OtherBallAction, recall 0.53), throw-ins (19% of misses), and turnovers with no
 event of the new team within 1 s (30% of misses: contested balls, where the label rule itself
 is least certain).
+
+### Cheaper switches at detected touches (Oct 23): rejected
+
+`learned.Params.switch_touch` (off by default): the switch into a team costs `switch_touch`
+instead of `switch` within `touch_window_s` of one of that team's detected touches.
+`scripts/eval_touch_switch.py`, submission model, DFL v2 labels, 3 seeds, 57 settings
+(switch 10/14/20 x touch cost 1/3/5 x window 0.3/0.6/1.0 s x controls only / all touches):
+
+| setting | DFL spellF1 | rate pred / true | recall < 5 s | real rate | public |
+|---|---|---|---|---|---|
+| switch 10 (submission) | 0.611 | 5.30 / 4.38 | 0.40 | 4.32 | 0.622 |
+| switch 20 | **0.641** (+0.030 ± 0.003, 7/7) | 4.81 / 4.38 | 0.38 | 4.16 | 0.622 |
+| switch 20, touch 5, 0.6 s, controls | 0.635 | 4.98 / 4.38 | 0.39 | 4.17 | 0.622 |
+| switch 20, touch 1, 0.3 s, controls | 0.631 | 5.05 / 4.38 | 0.39 | 4.28 | 0.622 |
+
+Every discount is worse than the same constant switch, and all-touch discounts never reach the
+top 15: the extra changes are mostly wrong, and short-possession recall moves by 0.01-0.02. The
+detected touches do not mark the short possessions precisely enough (on degraded tracking the
+detector finds ~61% of real hand-overs, and contacts fire in duels). On this bench the submission
+model over-changes (5.30 vs 4.38), the opposite of P on PFF, and switch 20 is +0.03 better; the
+real-match rate at switch 20 (4.16) stays near the public 4.25.

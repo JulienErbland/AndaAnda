@@ -19,7 +19,7 @@ from dataclasses import dataclass, replace
 import numpy as np
 
 from bench import ROOT
-from bench.match import A, D, H, X, graded_mask
+from bench.match import FPS, A, D, H, X, graded_mask
 
 from . import context, hmm
 
@@ -47,6 +47,12 @@ class Params:
     switch: float = 10.0
     stop: float = 40.0
     restart: float = 40.0
+    # Cheaper switch into a team within touch_window_s of one of its detected touches
+    # (possession/touches.py), so short possessions that start with a touch are affordable.
+    # None: off (constant switch).
+    switch_touch: float = None
+    touch_window_s: float = 0.5
+    touch_kinds: tuple = ("control",)
 
 
 def swap_teams(match):
@@ -168,14 +174,27 @@ def probabilities(match):
     return _model_for(match).predict(X_)
 
 
-def decode(match, p=Params(), probs=None, bonus=None):
-    """bonus: optional (T, 3) scores added before decoding (e.g. tags.bonus, Smart Tagging)."""
+def switch_costs(match, p, touch_list=None):
+    """(T, 2) cost of switching into H / A: p.switch, or p.switch_touch near that team's touches."""
+    from . import touches
+    cost = np.full((match.n_frames, 2), p.switch)
+    w = int(round(p.touch_window_s * FPS))
+    for t in touches.detect(match) if touch_list is None else touch_list:
+        if t.kind in p.touch_kinds:
+            cost[max(0, t.frame - w):t.frame + w + 1, t.team] = p.switch_touch
+    return cost
+
+
+def decode(match, p=Params(), probs=None, bonus=None, touch_list=None):
+    """bonus: optional (T, 3) scores added before decoding (e.g. tags.bonus, Smart Tagging).
+    touch_list: precomputed touches.detect(match), reused when p.switch_touch is set."""
     probs = probabilities(match) if probs is None else probs
     scores = p.weight * np.log(np.clip(probs, 1e-4, 1.0))
     if bonus is not None:
         scores = scores + bonus
+    sw = None if p.switch_touch is None else switch_costs(match, p, touch_list)
     return hmm.decode_scores(match, scores, hmm.Params(switch=p.switch, stop=p.stop,
-                                                       restart=p.restart))
+                                                       restart=p.restart), sw)
 
 
 def predict(match):

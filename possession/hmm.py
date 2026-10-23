@@ -74,13 +74,18 @@ def transitions(p):
     return t
 
 
-def viterbi(scores, trans):
-    """Most likely state index sequence for (T, 3) scores under (3, 3) log transitions."""
+def viterbi(scores, trans, switch_into=None):
+    """Most likely state index sequence for (T, 3) scores under (3, 3) log transitions.
+    switch_into: optional (T, 2) cost of switching into H / into A at each frame, replacing
+    trans[A, H] / trans[H, A]."""
     n = len(scores)
     back = np.empty((n, 3), dtype=np.int8)
     best = scores[0].copy()
     for t in range(1, n):
         cand = best[:, None] + trans
+        if switch_into is not None:
+            cand[A, H] = best[A] - switch_into[t, H]
+            cand[H, A] = best[H] - switch_into[t, A]
         back[t] = cand.argmax(0)
         best = cand.max(0) + scores[t]
     path = np.empty(n, dtype=np.int8)
@@ -95,13 +100,14 @@ def decode(match, p=Params(), feats=None):
     return decode_scores(match, evidence(feats, p), p)
 
 
-def decode_scores(match, scores, p):
+def decode_scores(match, scores, p, switch_into=None):
     """Viterbi over each graded half for (T, 3) scores; X outside the halves."""
     trans = transitions(p)
     out = np.full(match.n_frames, X, dtype=np.int8)
     state_codes = np.asarray(STATES, dtype=np.int8)
     for _, first, last in match.halves:
-        out[first:last + 1] = state_codes[viterbi(scores[first:last + 1], trans)]
+        sw = None if switch_into is None else switch_into[first:last + 1]
+        out[first:last + 1] = state_codes[viterbi(scores[first:last + 1], trans, sw)]
     return out
 
 

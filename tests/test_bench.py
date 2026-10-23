@@ -140,6 +140,23 @@ def test_viterbi_is_optimal_and_ignores_flicker():
     scores[70:] = [0, 2, 0]
     path = hmm.viterbi(scores, hmm.transitions(hmm.Params(switch=5)))
     assert (path[:70] == 0).all() and (path[70:] == 1).all()
+    # per-frame switch costs: still exact, and a cheap switch at a touch admits the flicker
+    for _ in range(20):
+        scores = rng.normal(0, 1, (6, 3))
+        into = rng.uniform(0, 3, (6, 2))
+
+        def step(a, b, t):
+            return -into[t, b] if {a, b} == {0, 1} else trans[a, b]
+        best = max(itertools.product(range(3), repeat=6), key=lambda s: sum(
+            scores[t, s[t]] + (step(s[t - 1], s[t], t) if t else 0) for t in range(6)))
+        assert tuple(hmm.viterbi(scores, trans, into)) == best
+    scores = np.zeros((100, 3))
+    scores[:, 0] = 1
+    scores[40:43] = [0, 2, 0]
+    into = np.full((100, 2), 5.0)
+    into[39:45] = 0.5
+    path = hmm.viterbi(scores, hmm.transitions(hmm.Params(switch=5)), into)
+    assert (path[40:43] == 1).all() and (path[:40] == 0).all() and (path[43:] == 0).all()
 
 
 def test_dfl_events_parse_sync_and_snap(tmp_path):
