@@ -428,3 +428,24 @@ PFF reproduces the real-match under-changing (both models predict ~3.4–3.7 cha
 minute vs 4.72 true), which the DFL bench never showed: the first bench where the real problem
 is measurable with real labels. Next: tune P's switch penalty on the PFF folds (predicted rate
 = true), then check the real rate and public window.
+
+Switch sweep on the PFF folds (`reports/compare/P_pff_sweep.json`, seed 0):
+
+| switch | PFF spellF1 | PFF rate (true 4.72) | real rate (public 4.25) | public |
+|---|---|---|---|---|
+| 1 | 0.535 | 4.43 | 3.80 | 0.507 |
+| 2 | 0.552 | 4.09 | 3.66 | 0.507 |
+| 3 | 0.561 | 3.91 | 3.51 | 0.586 |
+| 5 | 0.570 | 3.69 | 3.38 | 0.586 |
+| 7 | 0.576 | 3.54 | 3.35 | 0.586 |
+| 10 | **0.579** | 3.39 | 3.35 | 0.586 |
+
+Lowering the penalty adds wrong changes faster than it finds missed ones: spellF1 falls at every
+step and even switch 1 stays under the true rate. The missed changes are not marginal decoder
+calls; the per-frame probabilities do not show them. Switch stays 10.
+
+Licence (Oct 23): the PFF files ship no licence, every page of the specs reads "PFFA Acquisition
+LLC proprietary information", and PFF's general Terms of Use (pff.com/terms) forbid use "for
+machine learning or training of artificial intelligence models" and derivative works, unless
+supplemental terms say otherwise. Until the download form's own terms are checked, P is not a
+submission candidate.

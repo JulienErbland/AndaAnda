@@ -52,7 +52,8 @@ def cmd_eval(args):
             for sw in args.switches:
                 pred = learned.decode(view, learned.Params(switch=sw), pr)
                 r = score(clean.labels, pred)
-                out["dfl"].append([clean.name, seed, sw, r["spell_f1_mean"], r["macro_f1"]])
+                out["dfl"].append([clean.name, seed, sw, r["spell_f1_mean"], r["macro_f1"],
+                                   spell_rate(clean, pred)])
                 if seed == args.seeds[0] and sw == learned.Params().switch:
                     contexts.append(scenarios.context(clean.name, clean, seen))
                     preds["m"][clean.name] = pred
@@ -78,9 +79,9 @@ def cmd_eval(args):
 
 def _per_match(ev, sw):
     d = {}
-    for name, seed, s, sp, mac in ev["dfl"]:
+    for name, seed, s, sp, mac, *rate in ev["dfl"]:
         if s == sw:
-            d.setdefault(name, []).append((sp, mac))
+            d.setdefault(name, []).append((sp, mac, rate[0] if rate else np.nan))
     return {n: np.mean(v, axis=0) for n, v in d.items()}
 
 
@@ -90,12 +91,14 @@ def _summary(ev, label):
         br = np.array(ev["bench_rate"])
         print("  bench rate at default switch: predicted {:.2f} / true {:.2f} per live minute".format(
             *br.mean(0)))
-    print("  {:>6} {:>8} {:>8} {:>8} {:>8}".format("switch", "spellF1", "macroF1", "rate", "public"))
+    print("  {:>6} {:>8} {:>8} {:>10} {:>8} {:>8}".format("switch", "spellF1", "macroF1", "bench rate",
+                                                       "rate", "public"))
     for sw in ev["switches"]:
         pm = _per_match(ev, sw)
         h = ev["hackathon"].get(str(sw), {})
-        print("  {:>6} {:8.4f} {:8.4f} {:>8} {:>8}".format(
+        print("  {:>6} {:8.4f} {:8.4f} {:10.2f} {:>8} {:>8}".format(
             sw, np.mean([v[0] for v in pm.values()]), np.mean([v[1] for v in pm.values()]),
+            np.mean([v[2] for v in pm.values()]),
             "{:.2f}".format(h["rate"]) if h else "-", "{:.3f}".format(h["public_spell"]) if h else "-"))
 
 
