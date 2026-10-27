@@ -3,6 +3,7 @@
 Our solution to [More than a Hack 2027, Phase 1](../more-than-a-hack-2027/CHALLENGE.md): one
 label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1.
 
+- `docs/pipeline.md`: one-page summary of the data, the bench and the method.
 - `docs/problem.md`: the problem, the metric's consequences and the main challenges. **Read first.**
 - `docs/report.html`: the project report: main challenges, current state, where it fails, and the
   whole pipeline in depth (theory, diagrams, interactive demos). Open it in a browser.
@@ -11,17 +12,29 @@ label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1
 - `possession/`: the methods.
   - `baseline.py`: the organisers' baseline (method 0, `smooth50`).
   - `hmm.py`: M1, hand-built evidence and a Viterbi decoder.
-  - `learned.py`: M2, LightGBM evidence (`context.py` + `touches.py` features) in the same
-    decoder. This is the submission default.
+  - `learned.py`: M2, LightGBM evidence (`context.py` + `touches.py` + `restarts.py` features)
+    in the same decoder; a model dir may be an ensemble (`ensemble.json`). The submission
+    default is `models/ensemble.json`: models/R (DFL labels, restart features) × 0.75 +
+    models/B (hackathon-style labels, touch features) × 0.25, switch 20.
   - `touches.py`: touch detector (control / deflection / contact) feeding M2.
+  - `restarts.py`: restart detector (when, kind, team) and kick-off line-ups; a half is dead
+    until its kick-off (the real second half is graded ~2 min before it).
+  - `video.py`, `ballpatch.py`: ball detection in the tactical video (classical / learned
+    patches); evaluated, not adopted.
 
-| method | DFL held-out spellF1 | public window |
-|---|---|---|
-| smooth50 | 0.247 | 0.326 |
-| hmm (M1) | 0.352 | 0.413 |
-| learned (M2, Oct 20) | 0.522 | 0.622 |
-| learned + touches (current default) | **0.550** | **0.622** |
-| hsmm (M3, not adopted) | 0.463–0.517 | 0.622 |
+Bench numbers on the current yardstick (DFL relabelled with the hackathon-style rule, realistic
+degrader, held-out, 3 seeds), plus PFF World Cup 2022 as an evaluation-only bench (64 matches,
+never trained on). The benches choose; the real match's change rate is only a range check (the
+public window's 17 possessions put it anywhere in 2.5-6.8 per live minute). Full log:
+`docs/results.md`.
+
+| method | switch | bench spellF1 | PFF spellF1 | real rate | public window |
+|---|---|---|---|---|---|
+| smooth50 | – | 0.275 | – | 8.29 | 0.326 |
+| hmm (M1) | 40 | 0.534 | – | 4.35 | 0.413 |
+| M2 + touches (submission until Oct 27) | 10 | 0.611 | 0.479 | 4.28 | 0.622 |
+| R_r + B_r ensemble | 3 | 0.667 | 0.468 | 4.18 | 0.622 |
+| **R_r + B_r ensemble (current default)** | **20** | **0.724** | **0.514** | **3.45** | **0.622** |
 
 ## Setup
 
@@ -44,11 +57,16 @@ uv run python -m bench stats all             # data stats as degraded (for calib
 uv run python -m bench scenarios --preview   # edge-case pass rates + one MP4 replay per scenario
 uv run python scripts/scenario_page.py       # -> reports/scenarios/index.html
 uv run python scripts/tune_hmm.py            # staged tuning of possession/hmm.py
-uv run python -m possession.learned train    # models/lgbm.txt (+ held-out models/lomo/, ~5 min)
+uv run python -m bench relabel               # hackathon-style labels -> external/dfl_hk/ (for B)
+MTAH_MODEL_DIR=models/R uv run python -m possession.learned train --features restart   # ~5 min
+MTAH_DFL_LABELS=hackathon MTAH_MODEL_DIR=models/B uv run python -m possession.learned train --features touch
+                                             # each: <dir>/lgbm.txt + held-out <dir>/lomo/
+uv run python scripts/compare_models.py eval --out x.json   # bench + real rate per switch
+uv run python scripts/validate_restarts.py   # restart detector vs DFL official set pieces
 uv run python scripts/tune_learned.py        # decoder penalties for the learned method
 uv run python -m possession.submit           # official data -> submissions/AndaAnda.csv, validated
 uv run --group dev pytest                   # fast suite (+ xfail specs for the next directions)
-uv run --group dev pytest -m slow           # bench acceptance gates on held-out DFL (~25 s)
+uv run --group dev pytest -m slow           # bench acceptance gates on held-out DFL, v2 labels (~75 s)
 ```
 
 **Matches.**

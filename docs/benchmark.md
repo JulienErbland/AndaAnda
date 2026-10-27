@@ -177,3 +177,28 @@ dead ball visible 95%, slow play 75%, kick-off 12%.
 
 Reading: who has the ball (+0.28) is still the dominant loss; short possessions were mostly a DFL
 artefact (+0.24 -> +0.04); fewer changes win on the fixed bench, the reverse of DFL's labels.
+
+# Refresh (Oct 27): kick-off rule, restarts, ensembles
+
+Yardstick: hackathon-style labels (relabel v2), realistic degrader, 7 DFL matches × 3 seeds,
+held-out models, kick-off rule on. Each model is read at the switch whose real-match change rate
+is closest to the public window's 4.25 per live minute (`scripts/compare_models.py`; raw numbers
+in `reports/compare/*_k.json`, `*_lo.json`).
+
+| method | switch | spellF1 | real rate | public | vs previous submission |
+|---|---|---|---|---|---|
+| **R_r + B_r 75/25 (submission, switch 20 since Oct 27 evening: 0.724, PFF 0.514)** | 3 | **0.667** | 4.18 | 0.622 | **+0.056 ± 0.007, 7/7** |
+| A_r + B_r 75/25 | 3 | 0.665 | 4.18 | 0.622 | +0.054 ± 0.008, 7/7 |
+| A_r + B_r 50/50 | 1 | 0.668 | 4.24 | 0.593 | +0.057 ± 0.008, 7/7 |
+| R_r (M2 + touches + restarts) | 7 | 0.644 | 4.22 | 0.622 | +0.033 ± 0.007, 7/7 |
+| A_r (M2 + touches, realistic bench) | 7 | 0.637 | 4.24 | 0.622 | +0.026 ± 0.006, 7/7 |
+| M2 + touches (previous submission) | 10 | 0.611 | 4.28 | 0.622 | – |
+
+Gates of the submission on this yardstick (`pytest -m slow`, seed 0): spellF1 0.664, macroF1
+0.907; pass past opponents 88%, interception 29%, restart same / other 66% / 68%, hold through a
+ball gap 48%, change in a ball gap 44%, blackout change 25%, slow play 81%, dead ball visible
+100%, kick-off 12%, short possession 0% (15 clips).
+
+What did not move the bench: the learned video ball detector (42.6% within 1 m on hidden
+tracked balls, gate 60%: not wired in) and Smart Tagging SET PIECES (35 s windows, too vague to
+date a restart). Details in `results.md`, round 3.

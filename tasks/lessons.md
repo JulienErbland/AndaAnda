@@ -14,3 +14,23 @@
   models/ (the committed submission model). Caught before it saved. Now `possession.learned
   train` refuses experiment options without MTAH_MODEL_DIR. When chaining experiment commands,
   export MTAH_MODEL_DIR per step and never leave a bare `train` line in the chain.
+
+## pkill matches its own shell too (Oct 27)
+- `pkill -f "<pattern>"` killed the Bash call running it (exit 144): its command line contains the
+  pattern. Same trap as pgrep. Use a bracket pattern (`pkill -f "[c]ompare_models"`) or PIDs.
+
+## "No overlap" filters must compare with the last KEPT item (Oct 27)
+- Sorting random picks and dropping any closer than k to the previous PICK threw away ~80% of
+  them (69 training frames instead of 2,500) and produced a misleading NO-GO. Filter greedily
+  against the last kept item, and print the sample sizes before reading any result.
+
+## Gates must follow the yardstick (Oct 27)
+- The slow gates still scored DFL's original labels five days after the project moved its
+  yardstick to the hackathon-style labels, so they failed a model that is better on the
+  yardstick. When the yardstick changes, re-base the gates in the same change.
+
+## A bracket pattern does not protect a waiting loop that names the script it will run (Oct 27)
+- `while pgrep -f "[r]ound4_metrica.sh"; do sleep; done; scripts/round4_metrica.sh ...` waited
+  forever: the loop's own `bash -c` command line contains the literal `round4_metrica.sh` (in the
+  command it runs next), and the bracket only hides the pattern string itself. Wait on a PID
+  (`while kill -0 $PID`) or on a file the job writes when it finishes.

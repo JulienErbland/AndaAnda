@@ -1,0 +1,40 @@
+{
+ "trained_on": [
+  "dfl-DFL-MAT-J03WMX",
+  "dfl-DFL-MAT-J03WN1",
+  "dfl-DFL-MAT-J03WOH",
+  "dfl-DFL-MAT-J03WOY",
+  "dfl-DFL-MAT-J03WPY",
+  "dfl-DFL-MAT-J03WQQ",
+  "dfl-DFL-MAT-J03WR9"
+ ],
+ "groups": {
+  "dfl-DFL-MAT-J03WMX": "dfl-DFL-MAT-J03WMX",
+  "dfl-DFL-MAT-J03WN1": "dfl-DFL-MAT-J03WN1",
+  "dfl-DFL-MAT-J03WOH": "dfl-DFL-MAT-J03WOH",
+  "dfl-DFL-MAT-J03WOY": "dfl-DFL-MAT-J03WOY",
+  "dfl-DFL-MAT-J03WPY": "dfl-DFL-MAT-J03WPY",
+  "dfl-DFL-MAT-J03WQQ": "dfl-DFL-MAT-J03WQQ",
+  "dfl-DFL-MAT-J03WR9": "dfl-DFL-MAT-J03WR9"
+ },
+ "profile": "hackathon",
+ "feature_set": "restart",
+ "draws": 1,
+ "spread": 0.0,
+ "with_pff": false,
+ "params": {
+  "objective": "multiclass",
+  "num_class": 3,
+  "learning_rate": 0.05,
+  "num_leaves": 31,
+  "min_data_in_leaf": 200,
+  "feature_fraction": 0.8,
+  "lambda_l2": 1.0,
+  "verbose": -1,
+  "seed": 0,
+  "deterministic": true,
+  "force_row_wise": true,
+  "num_threads": 4
+ },
+ "rounds": 300
+}

@@ -169,8 +169,8 @@ def out_dir(tag=None):
     return OUT_DIR if not tag else OUT_DIR + "_" + tag
 
 
-def write(paths, rule, tag=None):
-    out_d = out_dir(tag)
+def write(paths, rule, tag=None, out_d=None):
+    out_d = out_d or out_dir(tag)
     os.makedirs(out_d, exist_ok=True)
     for p in paths:
         m = Match.load(p)
@@ -182,3 +182,13 @@ def write(paths, rule, tag=None):
 
 def dfl_paths():
     return sorted(glob.glob(os.path.join(EXTERNAL_DIR, "dfl", "*.npz")))
+
+
+# Metrica sample games: same rule, their event-derived dead / live and restarting team as the
+# scaffold (approximate: Metrica's labels come from events, not from corrected tracking).
+METRICA_OUT_DIR = os.path.join(EXTERNAL_DIR, "metrica_hk")
+
+
+def metrica_paths():
+    from .epts import METRICA_DIR
+    return sorted(glob.glob(os.path.join(METRICA_DIR, "metrica-game*.npz")))

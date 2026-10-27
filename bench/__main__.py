@@ -41,10 +41,19 @@ def _dfl_dir():
     sys.exit("MTAH_DFL_LABELS must be unset, 'hackathon' or 'hackathon-<tag>'")
 
 
+def _metrica_dir():
+    from .relabel import METRICA_OUT_DIR
+    if os.environ.get("MTAH_DFL_LABELS", "").startswith("hackathon") and os.path.isdir(METRICA_OUT_DIR):
+        return METRICA_OUT_DIR
+    return epts.METRICA_DIR
+
+
 def match_paths(selectors):
     groups = {
         "dfl": sorted(glob.glob(os.path.join(_dfl_dir(), "*.npz"))),
-        "metrica": sorted(glob.glob(os.path.join(epts.METRICA_DIR, "metrica-game*.npz"))),
+        # Metrica follows MTAH_DFL_LABELS=hackathon too (relabelled copies in external/metrica_hk)
+        "metrica": sorted(glob.glob(os.path.join(
+            _metrica_dir(), "metrica-game*.npz"))),
         "pff": sorted(glob.glob(os.path.join(EXTERNAL_DIR, "pff", "*.npz"))),
         "hackathon": [epts.HACKATHON_PATH] if os.path.isfile(epts.HACKATHON_PATH) else [],
     }
@@ -110,6 +119,8 @@ def cmd_relabel(args):
         rule = relabel.Rule(control_s=args.control_s if args.control_s is not None else rule.control_s,
                             near_m=args.near_m if args.near_m is not None else rule.near_m)
     relabel.write(relabel.dfl_paths(), rule, args.tag)
+    if not args.tag:
+        relabel.write(relabel.metrica_paths(), rule, out_d=relabel.METRICA_OUT_DIR)
 
 
 def cmd_stats(args):

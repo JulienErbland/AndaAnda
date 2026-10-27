@@ -314,7 +314,8 @@ def main():
     res["calibration"] = calibration(gts, prs, gr)
 
     import lightgbm as lgb
-    booster = lgb.Booster(model_file=learned.FULL_MODEL)
+    # feature importance of the first (largest-weight) member of the submission model
+    booster = lgb.Booster(model_file=os.path.join(learned.members()[0][0], "lgbm.txt"))
     gain = booster.feature_importance("gain")
     names = booster.feature_name()
     order = np.argsort(-gain)

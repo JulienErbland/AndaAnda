@@ -113,20 +113,23 @@ def test_swap_teams_swaps_labels_and_slots():
 def test_learned_uses_held_out_model_for_training_matches(monkeypatch):
     import json
     import lightgbm
+    import os
     from possession import learned
-    with open(learned.META) as f:
+    member = learned.members()[0][0]
+    with open(os.path.join(member, "lgbm.json")) as f:
         trained_on = json.load(f)["trained_on"]
     opened = []
     monkeypatch.setattr(lightgbm, "Booster", lambda model_file: opened.append(model_file))
-    learned._model_for(toy([H], np.full((1, 2), 50.0)))             # unseen match
+    learned._model_for(toy([H], np.full((1, 2), 50.0)), member)     # unseen match
     m = toy([H], np.full((1, 2), 50.0))
     m.name = trained_on[0]
     try:
-        learned._model_for(m)                                        # a training match
+        learned._model_for(m, member)                                # a training match
     except IOError:
         pass  # held-out models not built on this machine: refusing is also correct
-    assert opened[0] == learned.FULL_MODEL
-    assert all(p != learned.FULL_MODEL for p in opened[1:])
+    full = os.path.join(member, "lgbm.txt")
+    assert opened[0] == full
+    assert all(p != full for p in opened[1:])
 
 
 # -- semi-Markov decoder -------------------------------------------------------------------------

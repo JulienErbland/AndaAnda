@@ -17,7 +17,7 @@ from bench.match import FPS, A, H
 
 from .toys import HOME, Toy
 
-TODO_1 = pytest.mark.xfail(strict=True, reason="direction 1: possession/restarts.py not built")
+TODO_1 = lambda f: f  # direction 1 built: possession/restarts.py
 TODO_2 = lambda f: f  # direction 2 built: possession/touches.py
 TODO_3 = lambda f: f  # direction 3 built: possession/gaps.py
 

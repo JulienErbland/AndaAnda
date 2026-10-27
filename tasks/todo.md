@@ -408,3 +408,147 @@ with a hackathon-like rule so the bench measures the right definition of possess
       far), public 0.586; PFF reproduces the real under-changing (3.4 vs 4.72 per live min)
 - [ ] tune P's switch penalty on the PFF folds so the predicted rate matches the truth; check the
       real rate / public window; candidate to replace the submission
+
+---
+
+# Round 3 (Oct 27): items 6, 7, 8, 11, 12 of the review
+
+Rule for every adoption: paired DFL comparison (v2 labels, realistic bench, 3 seeds) read at the
+real-match change rate (switch whose real rate is closest to the public 4.25); public window as a
+sanity check only. Real-match outputs are aggregates only.
+
+- [x] 6. Second-half pre-kickoff (110,808-113,741 is all D): measure the submission's non-D frames
+      and possessions there; if any, force D before the detected kick-off of each half
+      (`scripts/prekickoff.py`). Before: submission 1,059 H frames / 6 false possessions, A_r 325 / 2.
+      Now (`restarts.kickoff_frames` + `learned.Params.kickoff_dead`): 27 / 13 H frames, 1 run each,
+      inside the last 1.2 s before the kick (the first real possession starting early)
+- [x] 7. Switch / model: A_r vs the submission at matched real rate (reports/compare/{sub_r,A_r}.json).
+      Old decoder: A_r switch 7 -> real rate 4.25, public 0.622, bench 0.637 vs submission 0.611
+      at switch 10; at matched real rate +0.013 +- 0.005, 7/7. Re-check with the kick-off rule
+      (models_k vs A_r_k): A_r switch 7 +0.026 ± 0.006, 7/7, rate 4.24 -> superseded by item 8
+- [x] 8. (built: `learned.members` / `probabilities` read ensemble.json) -> R_r + B_r 75/25 ADOPTED
+      Ensemble: `ensemble.json` in a model dir = weighted log-mean of member models'
+      probabilities (A_r + B_r); sweep weight and switch; paired vs the item-7 winner
+- [x] 11. (built, 6 specs pass; R_r +0.007 ± 0.003 vs A_r, 6/7; in the submission as models/R) Restart detector `possession/restarts.py` (specs in tests/test_directions.py, direction 1):
+      detect(match) -> [Restart(frame, team, kind)]; features into M2 (feature set "restart");
+      retrain held-out; paired comparison; Smart Tagging SET PIECES agreement with the detector on
+      the real match (aggregate), used only if it adds information
+- [x] 12. NO-GO (42.6% within 1 m, gate 60%; median 1.23 m vs prior 1.96 m) Learned ball-patch classifier on the tactical video (tracked ball = free labels):
+      go/no-go on the self-check (>= 60% within 1 m on held-out frames, error below the prior);
+      only on a go: fill gaps, compare M2 with / without on the real match
+- [x] Docs: README, docs/results.md, docs/benchmark.md, docs/report.html, tasks/todo.md
+
+## Round 3: state when paused (Oct 27, 18:55)
+
+Measured so far:
+- restarts (`scripts/validate_restarts.py`, DFL events): clean found 84%, team 94%, kind 91%;
+  degraded found 37%, team right 14/15 when named (named on ~50%). DFL parks a dead ball where it
+  left the pitch (57% of still stretches outside the lines; real match 11.5%,
+  `scripts/restart_realism.py`): parked stretches are skipped. Kick-off line-ups (no ball):
+  found 58% clean / 39% degraded.
+- Smart Tagging SET PIECES (`scripts/tag_restarts.py`): fixed 35 s windows, the model's restart
+  sits +5.7 s after the tag start (IQR +3.7/+8.6), team N/A 53% -> too vague, not used.
+
+Resume (all resumable, ~1 h):
+1. `scripts/round3.sh > reports/compare/round3.log 2>&1` (5 evals; skips finished ones)
+2. `uv run python -m possession.ballpatch check > reports/ballpatch_check.log 2>&1` (~20 min)
+3. compare: `uv run python scripts/compare_models.py compare reports/compare/models_k.json
+   reports/compare/<X>_k.json` for X in A_r, ens_AB, ens_AB3, R_r; adopt at matched real rate
+4. adopt winner into models/ (+ switch in learned.Params), `python -m possession.submit`,
+   `pytest -m slow`, then docs (README, results.md, benchmark.md, report.html)
+
+## Round 3 review (Oct 27)
+
+- Submission is now `models/ensemble.json`: models/R (R_r: DFL labels, touch + restart features)
+  × 0.75 + models/B (B_r: hackathon-style labels, touch features) × 0.25, switch 3, kick-off rule.
+  Bench (v2 labels) 0.667 vs 0.611, +0.056 ± 0.007, 7/7 at matched real rate; real rate 4.18;
+  public 0.622 (unchanged), 10/17 public possessions; 220 possessions, mean 14.4 s; byte-identical
+  across runs; validator passes. Public macroF1 0.861 -> 0.839 (bench macroF1 up): watch it.
+- Pre-kickoff false possessions 6 -> 0 (item 6).
+- `pytest -m slow` re-based on the v2 labels (12 floors pass; ball-gap targets reached).
+- Not adopted: learned video ball detector (NO-GO), Smart Tagging SET PIECES (35 s windows).
+- Caveat for the tech doc: B is trained on the rule the bench scores with; the real change rate is
+  the guard every adoption was read at.
+- Open: items 1-5 of the review (tech doc, fresh-clone reproduction incl. `bench relabel` for B,
+  opencv to an optional group, team size, final validation); the bench -> real gap (adversarial
+  validation, self-training on the real match).
+
+---
+
+# Review of the pipeline (Oct 27): fixes and different approaches
+
+Estimates are bench spellF1 gains (hackathon-style labels, paired, 7 matches) unless stated; the
+real-match effect is always less certain than the bench's.
+
+## Fixes
+
+- [ ] **F0. The ATD's ball "speed" is not a speed (found Oct 27, highest priority).**
+      `scripts/domain_shift.py`: bench vs real frames are separable at AUC 0.998, 77% of it from
+      `ball_last_speed`. The ATD's third ball value correlates 0.06 with the speed from positions
+      (median 1.1, p99 5.3, never 0): most likely the ball's HEIGHT in m. The bench derives a real
+      speed, so on the real match every ball-speed feature reads height. Deriving the speed on the
+      real match is the consistent fix but, as is, makes the current models miss dead balls
+      (public window: 475 vs 1,026 of 1,469 dead frames): DFL parks a dead ball motionless, the
+      real one is carried / thrown back. Reverted until:
+  - [ ] degrader: a visible dead ball moves like the real one (follows the nearest player, or the
+        real dead-ball speed distribution; aggregates only: derived ball speed on the public
+        window's dead frames vs the bench's dead frames);
+  - [ ] derive the ball speed everywhere; retrain R and B; re-run the bench + PFF + real checks;
+  - [ ] optional: DFL tracking has the ball's z: a height feature on both sides (check
+        `bench/dfl.py` keeps it).
+      Estimate: unknown but potentially the largest real-match gain of the list (the model's
+      ball-speed evidence is currently wrong on every real frame); bench unchanged by construction.
+      Effort ~1 day with retraining.
+- [x] **F1. Choose on the bench; the public rate is a range check only.** DONE: switch 20 (bench 0.724, PFF 0.514, real 3.45). Checked: exact Poisson
+      95% interval for 17 possessions is 9.9-27.2 events; the window has 4.02 live minutes, so
+      2.5-6.8 changes per live minute. "Closest to 4.25" (switch 3, the 0.75/0.25 mix) fits noise.
+      New rule: paired bench comparison decides; the real rate must fall in [2.5, 6.8]; the PFF
+      evaluation-only bench (independent labels, not the bench's rule) breaks ties and guards
+      against the B-family's circular advantage. Effort: hours (existing evals re-read).
+      Consequence to expect: higher switches and more weight on B (bench best: ens 50/50 at
+      switch 20, 0.743; B_r alone 0.74).
+- [x] **F2. The public window never decides.** Adopted as policy. One possession moves spellF1 by ~0.03-0.07 here
+      (2·TP/(n_pred + 17) with ~10 predicted); several past "not adopted: public drops" calls
+      were within that step. Keep it as an alignment / format check only.
+- [ ] **F3 (= review A). Adversarial validation near changes.** The overall run found F0; repeat
+      on frames within ±2 s of a possession change (bench: true changes; real: the public
+      window's 12 changes + the model's predicted changes) to see which touch / control features
+      fail to transfer there. Effort 1-2 h. Then fix the degrader or drop the features.
+- [ ] **F4 (= review B). Self-training on the real match.** Built (`possession/selftrain.py`,
+      `learned train --self-train W`: control-based pseudo-labels, ball hidden in gap shapes,
+      public window excluded; disagrees with the submission on 3.1% of confident live frames).
+      Blocked on F0 (its scaffold reads the wrong ball speed). Then run two variants: as built,
+      and the reviewer's conservative one (confident mid-possession frames only). Judge on the
+      bench (must not drop), PFF and the real-rate range. Estimate +0.00-0.03 real, ~0 bench;
+      risk: reinforces current misses.
+
+## Different approaches
+
+- [ ] **C. Minimum Bayes risk decoding for spellF1.** Forward-filtering backward-sampling of a
+      few hundred paths per half from the HMM posterior (with a temperature on the scores: the
+      per-frame terms are correlated, so the raw posterior is over-confident), then pick among
+      candidates (Viterbi at several switches + samples) the one with the best mean spellF1
+      against the samples, with the organisers' scorer. Feasible: numpy FFBS vectorised over
+      samples, ~1-2 min per match. Bonus: picks the switch per match, which removes F1's noisy
+      choice. Estimate +0.00-0.02 bench (the gain is bounded by how often a different path wins
+      on expected spellF1); effort ~1 day.
+- [ ] **D. Learned, time-varying switch costs.** A second LightGBM predicts "change within
+      ±0.5 s" (bench labels); its log-odds set the switch cost per frame (IO-HMM-like), with one
+      or two scale parameters tuned on the bench. Differs from the rejected touch discounts
+      (rule-based) but overlaps them: the misses are mostly short possessions the evidence
+      barely sees. Estimate +0.005-0.02; effort ~1 day.
+- [ ] **E. PathCRF as extra features** (arXiv 2602.12080, Feb 2026, code
+      github.com/hyunsungkim-ds/pathcrf; training data to verify in the paper). Set-attention
+      edge scores + CRF over player-to-player possession paths, no ball. Catches: needs fixed
+      player nodes (our slots break ~11 times per minute: join tracklets on short windows), live
+      play only, DFL's possession definition, a torch dependency. Use: per-team summed edge
+      probabilities as LightGBM features. Estimate +0.00-0.03 bench, real transfer doubtful;
+      effort 2-4 days. Low priority; only after F0-F4.
+- [ ] **F. Ball-free deep model from scratch** (Peral et al. WACV 2026; Ball Radar,
+      arXiv 2306.08206): skip. Trained on 283 proprietary matches, no code; with 7 matches it is
+      unlikely to beat LightGBM. Estimate <= current.
+
+- [x] **Review fix 3 (earlier list): Metrica sample games as training data.** Rejected: DFL bench
+      +0.000 / −0.003, PFF −0.006 ± 0.002 (19/64) at switch 20 (`results.md`).
+
+Suggested order: F0 -> F3 -> F4 -> C -> D -> E (F1 / F2 done).

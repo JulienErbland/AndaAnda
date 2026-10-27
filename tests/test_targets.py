@@ -1,13 +1,19 @@
 """Bench acceptance gates for the submission method, on the 7 held-out DFL matches.
 
-    uv run --group dev pytest -m slow           # ~1 min; needs `bench fetch` + `learned train`
+    uv run --group dev pytest -m slow           # ~1 min; needs `bench fetch`, `bench relabel`
+                                                # and the held-out models (`learned train`)
 
 FLOORS pass today and must keep passing: a direction may not buy its gain by breaking what works.
 TARGETS are what each direction is for. They are xfail(strict=True) until reached; when one
 passes, pytest reports XPASS as a failure, which is the cue to move it into FLOORS.
 
-Current values (M2 learned, Oct 20) are in the comments; floors sit just below them so that a
-retrained model's small wobble does not fail them, while a real regression does.
+Scored on the hackathon-style labels (bench/relabel.py v2), the bench's yardstick since Oct 22:
+DFL's own labels change possession twice as often as the hackathon GT. Re-based Oct 27 for the
+R + B ensemble at switch 20; comments give its value, then the previous submission's (M2 + touches,
+switch 10) on the same labels. Switch 20 trades changes for holds: change_in_ball_gap (38% vs
+41%) and blackout_change (21% vs 25%) are below the old model and stay TARGETS; every floor is at
+or above it. On DFL's own labels the ensemble scores lower on interceptions: DFL counts as
+possession changes many balls the hackathon rule leaves with the old team.
 """
 
 import os
@@ -16,33 +22,34 @@ import numpy as np
 import pytest
 
 pytestmark = pytest.mark.slow
+os.environ.setdefault("MTAH_DFL_LABELS", "hackathon")
 
 METHOD = "learned"
 
-# Re-based Oct 22 on the realistic degrader (ball smoothing, false blips, gaps from ball-out,
-# duel breaks): the same submission model scores lower on the harder bench, not a regression.
 FLOORS = {
-    "spell_f1_mean": 0.50,          # 0.516 on the realistic bench (0.550 on the Oct 21 bench)
-    "macro_f1": 0.87,               # 0.890
-    "pass_past_opponents": 0.92,    # 95%
-    "long_stoppage": 0.96,          # 99%
-    "dead_ball_visible": 0.88,      # 93%
-    "duel_flurry": 0.70,            # 74%
-    "slow_play": 0.74,              # 83%
-    "interception": 0.29,           # 31% on the realistic bench (40% on the Oct 21 bench)
+    "spell_f1_mean": 0.70,          # 0.723 / 0.611
+    "macro_f1": 0.89,               # 0.911 / 0.885
+    "pass_past_opponents": 0.87,    # 90% / 87%
+    "long_stoppage": 0.96,          # 99% / 97%
+    "dead_ball_visible": 0.95,      # 100% / 95%
+    "duel_flurry": 0.50,            # 67% / 50% (6 clips)
+    "slow_play": 0.78,              # 82% / 75%
+    "interception": 0.25,           # 27% / 27%
+    "restart_same": 0.66,           # 69% / 59% (direction 1)
+    "restart_other": 0.66,          # 69% / 63% (direction 1)
+    "ball_gap_hold": 0.50,          # 54% / 46% (direction 3 target 45%, reached)
 }
 
 TARGETS = [
     # direction 1: restart detector
-    ("restart_same", 0.70, 1),      # 56%
-    ("restart_other", 0.70, 1),     # 55%
+    ("restart_same", 0.70, 1),      # 69%
+    ("restart_other", 0.70, 1),     # 69%
     ("kickoff", 0.50, 1),           # 12% (8 clips)
     # direction 2: touch detector
-    ("short_spell", 0.15, 2),       # 8%
+    ("short_spell", 0.15, 2),       # 0% (15 clips on these labels)
     # direction 3: ball-gap reasoning
-    ("change_in_ball_gap", 0.40, 3),  # 25%
-    ("ball_gap_hold", 0.45, 3),       # 23%
-    ("blackout_change", 0.30, 3),     # 14%
+    ("change_in_ball_gap", 0.40, 3),  # 38% (44% at switch 3, 41% for the old submission)
+    ("blackout_change", 0.30, 3),   # 21% (old submission 25%)
 ]
 
 
@@ -59,7 +66,7 @@ def bench():
         paths = match_paths(["dfl"])
     except SystemExit:
         pytest.skip("no DFL data: run `python -m bench fetch dfl`")
-    if not os.path.isdir(learned.LOMO_DIR):
+    if not all(os.path.isdir(os.path.join(d, "lomo")) for d, _ in learned.members()):
         pytest.skip("no held-out models: run `python -m possession.learned train`")
 
     method = resolve_method(METHOD)

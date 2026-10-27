@@ -20,3 +20,4 @@ models/lomo/
 models/carrier/
 models/ballfill/
 models_exp/
+models/*/lomo/

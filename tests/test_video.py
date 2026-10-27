@@ -85,3 +85,19 @@ def test_apply_fills_gaps_only(tmp_path):
 def test_runs_around_includes_the_neighbours_link_needs():
     r = video._runs_around(np.array([10, 11, 50]), 100)
     assert r.tolist() == [8, 9, 10, 11, 12, 13, 48, 49, 50, 51, 52]
+
+
+def test_ballpatch_candidates_include_the_ball():
+    from possession import ballpatch
+    rng = np.random.default_rng(0)
+    frames = []
+    for t in range(5):
+        img = np.full((200, 300, 3), (40, 120, 40), np.uint8)
+        img[90:96, 30:36] = 200                                   # a still line fragment
+        img += rng.integers(0, 8, img.shape, dtype=np.uint8)
+        cv2.circle(img, (100 + 6 * t, 100), 3, (235, 235, 235), -1)  # the moving ball
+        frames.append(img)
+    px, X = ballpatch.candidates(frames[2], frames[0], frames[4], (110, 100), 80, 6.0)
+    assert X is not None and X.shape[0] == len(px) and X.shape[1] == 5 * ballpatch.PATCH ** 2 + 6
+    d = np.hypot(px[:, 0] - 112, px[:, 1] - 100)
+    assert d.min() <= 2

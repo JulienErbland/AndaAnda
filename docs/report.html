@@ -165,7 +165,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   pipeline stands, where it still fails and what comes next. Part two explains every stage in
   depth: the theory behind each tool, why we chose it, and what it measured on held-out matches.
   Every number is tracked in <a href="results.md"><code>docs/results.md</code></a>.</p>
-  <p class="muted mono" style="font-size:0.8rem">Status as of <!--DATE-->Oct 22, 2026<!--/DATE--></p>
+  <p class="muted mono" style="font-size:0.8rem">Status as of <!--DATE-->Oct 27, 2026<!--/DATE--></p>
   <div class="legend" aria-label="Label colours">
     <span><i style="background:var(--home)"></i>H: home (Barcelona) in possession</span>
     <span><i style="background:var(--away)"></i>A: away (Athletic) in possession</span>
@@ -178,10 +178,10 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <span class="eyebrow">1 · Summary</span>
   <h2>Where we stand</h2>
   <div class="stats">
-    <div class="stat"><span class="k">Best method</span><span class="v">M2</span><span class="d">LightGBM evidence + Viterbi decoder</span></div>
-    <div class="stat"><span class="k">Bench spellF1 (fixed bench)</span><span class="v">0.611</span><span class="d">hackathon-style labels, realistic tracking; baseline 0.28</span></div>
+    <div class="stat"><span class="k">Best method</span><span class="v">M2 ensemble</span><span class="d">two LightGBM evidence models + Viterbi decoder</span></div>
+    <div class="stat"><span class="k">Bench spellF1 (fixed bench)</span><span class="v">0.724</span><span class="d">hackathon-style labels, realistic tracking; baseline 0.28; Oct 22: 0.611. PFF (eval only): 0.514</span></div>
     <div class="stat"><span class="k">Public window spellF1</span><span class="v">0.622</span><span class="d">17 possessions: a sanity check, not a target</span></div>
-    <div class="stat"><span class="k">Real possessions / live min</span><span class="v">4.32</span><span class="d">public labels: 4.25</span></div>
+    <div class="stat"><span class="k">Real possessions / live min</span><span class="v">3.45</span><span class="d">public labels: 4.25 (17 possessions: 2.5-6.8)</span></div>
   </div>
   <ul>
     <li><strong>The method.</strong> A gradient-boosted model reads 42 context features (team shape,
@@ -205,8 +205,19 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
     leaves play, identity breaks in duels (§5).</li>
     <li><strong>The main open problem: the real tracking hides hand-overs.</strong> In the public 5
     minutes there are 17 possessions; the submission finds 10. Models trained on the fixed bench do
-    better on the bench (+0.09) but find only 8 on the real match, so they are not adopted. Ball
-    detection in the video, built and waiting for the video file, is the fix aimed at the source (§6).</li>
+    better on the bench (+0.09) but find only 8 on the real match. Since Oct 27 the submission
+    mixes one such model in at a quarter weight, at a switch that keeps the real change rate; it
+    still finds 10. Ball detection in the video, aimed at the source, did not pass its gate (§17).</li>
+    <li><strong>Latest (Oct 27, evening): switch chosen on the benches.</strong> The public
+    rate (17 possessions) only bounds the real rate to 2.5-6.8 per live minute, so the switch is
+    now chosen on the DFL bench and on PFF, a 64-match evaluation-only bench with independent
+    labels: switch 20, bench 0.724, PFF 0.514 (old submission 0.611 / 0.479). Adversarial
+    validation also found that the ATD's ball "speed" is not a speed (likely its height): next fix.</li>
+    <li><strong>Earlier on Oct 27: +0.056 on the bench, same public score.</strong> The submission is
+    now an ensemble: a model trained on DFL's labels with new restart features (×0.75) and one
+    trained on the hackathon-style labels (×0.25). Better on all 7 bench matches. A kick-off rule also removes 6 false possessions the old
+    submission produced before the second-half kick-off (graded but all dead). A learned ball
+    detector in the video reached 42.6% within 1 m (gate 60%) and stays out (§17).</li>
     <li><strong>Submission.</strong> One command rebuilds <code>AndaAnda.csv</code> from the raw
     bundle, byte-identical across runs, validated by the organisers' script. Deadline Nov 17, 2026.</li>
   </ul>
@@ -449,7 +460,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <div class="table-wrap"><table>
     <thead><tr><th>Tried in M2</th><th class="num">DFL spellF1</th><th class="num">real rate / live min</th><th class="num">public</th><th>Decision</th></tr></thead>
     <tbody>
-      <tr class="best"><td>M2 + touches (current)</td><td class="num">0.547</td><td class="num">4.32</td><td class="num">0.622</td><td>kept</td></tr>
+      <tr class="best"><td>M2 + touches (submission Oct 21–27)</td><td class="num">0.547</td><td class="num">4.32</td><td class="num">0.622</td><td>kept</td></tr>
       <tr><td>+ carrier features, switch penalty 10</td><td class="num">0.556</td><td class="num">4.60</td><td class="num">0.533</td><td rowspan="2">rejected: the gain came only from changing possession more often</td></tr>
       <tr><td>+ carrier features, switch penalty 17 (same real rate)</td><td class="num">0.543</td><td class="num">4.32</td><td class="num">0.533</td></tr>
       <tr><td>path decoder instead of the H/A/D decoder</td><td class="num">0.532</td><td class="num">4.53</td><td class="num">0.607</td><td>rejected for now: counts the same evidence twice</td></tr>
@@ -511,21 +522,18 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <span class="eyebrow">6 · Plan</span>
   <h2>Next steps</h2>
   <ol>
-    <li><strong>Ball detection in the tactical video</strong> (<code>possession/video.py</code>,
-    built and tested on synthetic video): search where the ball-filling model says the ball is,
-    find small bright moving blobs of the right size through the homography, link them in time.
-    Waiting for the video file; first run is a self-check on hidden tracked balls (aggregates only).</li>
-    <li><strong>Varied degradation in training</strong> (built): compare clean, one degraded draw and
-    varied draws, under the normal and stress profiles.</li>
-    <li><strong>Remaining realism gaps</strong>: false blips (implied speed across short gaps 13 vs
-    66 m/s) and the tail of the gap-start speed.</li>
-    <li><strong>Decoder on the fixed bench</strong>: switch penalty 20 and the semi-Markov decoder
-    win there (+0.03 / +0.014, 7/7) with the same public score; decide together with item 1.</li>
-    <li><strong>Who touched it last before a stoppage</strong> (+0.04 ceiling now).</li>
-    <li><strong>Fine-tuning on the hackathon match</strong> as the last step (ball filling written,
-    not run).</li>
+    <li><strong>Close the bench → real gap at its source</strong>: every model finds fewer
+    hand-overs on the real tracking than on the bench. Two untried levers: adversarial validation
+    (which features differ between bench and real rows, aggregates only) and self-training on the
+    real match (pseudo-labels from the hackathon-style rule on visible-ball frames, ball hidden in
+    gap shapes).</li>
+    <li><strong>Restarts, still under target</strong> (restart same / other 66% / 68%, target 70%;
+    kick-off 12%): the detector needs the ball, and the real tracking loses it on most dead frames.</li>
+    <li><strong>A deep ball detector</strong>, if the video is pursued again: the learned patch
+    classifier's ceiling is its candidate stage (ball among the top 150 peaks on ~52% of frames).</li>
+    <li><strong>Who touched it last before a stoppage</strong> (+0.04 ceiling).</li>
     <li><strong>Freeze the model ~Nov 10</strong>, write the tech doc <code>AndaAnda.md</code>, check
-    the public repo. Deadline Nov 17.</li>
+    the public repo from a fresh clone. Deadline Nov 17.</li>
   </ol>
 </section>
 
@@ -939,6 +947,16 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <div class="table-wrap"><table>
     <thead><tr><th>Experiment</th><th>Idea</th><th>Result</th><th>Why it did not work</th></tr></thead>
     <tbody>
+      <tr><td>Learned ball detector in the video (Oct 27)</td><td>Patch classifier (LightGBM on grey,
+      colour and motion patches) trained on this video, the tracked ball as free labels; candidates
+      are bright compact peaks ranked by brightness and motion</td><td>42.6% within 1 m on 1,000
+      hidden tracked balls (most confident half 56%), median 1.23 m vs 1.96 m for the prior; gate 60%</td>
+      <td>The ball is among the top 150 candidates on only ~52% of frames: hundreds of bright peaks
+      per window. A deep detector would be the next step; the bench ceiling is small (+0.02)</td></tr>
+      <tr><td>Smart Tagging SET PIECES (Oct 27)</td><td>Date restarts and name the restarting team
+      from the tags</td><td>The tags are fixed 35 s windows; the restart sits +5.7 s after their start
+      (IQR +3.7 / +8.6 s); 53% have no team</td><td>Too vague to date a restart; the detector finds
+      a restart in 34% of the tagged windows, as on the bench</td></tr>
       <tr><td>Ball-gap features (direction 3)</td><td>Describe each ball gap as a whole: implied ball speed from last to next sighting, sprinting during the gap, team shapes flipping</td><td class="num">0.5220 → 0.5205</td><td>The context features already carry it. What gaps lack is training examples, not features.</td></tr>
       <tr><td>M3 semi-Markov</td><td>Duration priors, gap-aware evidence (§16)</td><td class="num">≤ 0.517</td><td>Learned probabilities already imply the durations.</td></tr>
       <tr><td>Switch penalty 20</td><td>Fewer changes</td><td class="num">−0.017</td><td>Merges short possessions.</td></tr>
@@ -970,7 +988,8 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <p><code>uv run python -m possession.submit</code> rebuilds the match from the raw bundle, runs the
   chosen method, writes <code>submissions/AndaAnda.csv</code> and runs the organisers' validator. It
   takes about 15 s and is byte-identical across runs: dependencies are pinned in <code>uv.lock</code>,
-  the model in <code>models/lgbm.txt</code> is trained deterministically on public data, and nothing is random.</p>
+  the models (<code>models/ensemble.json</code>: <code>models/R</code> × 0.75 + <code>models/B</code> × 0.25)
+  are trained deterministically on public data, and nothing is random.</p>
   <div class="why"><b>Privacy rule</b>The terms forbid giving the match data, or any extract, to a
   cloud LLM. Code is written against the documented formats. Every command on the hackathon data
   prints aggregates only, and frame-level files (<code>data/</code>, <code>official_data/</code>,
@@ -995,6 +1014,8 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
       <tr><td><code>possession/context.py</code>, <code>possession/learned.py</code></td><td>M2 features, LightGBM, leave-one-match-out guard</td></tr>
       <tr><td><code>possession/hsmm.py</code></td><td>M3 semi-Markov decoder</td></tr>
       <tr><td><code>possession/touches.py</code></td><td>Direction 2: control / deflection / contact detector and its features</td></tr>
+      <tr><td><code>possession/restarts.py</code></td><td>Direction 1: restart detector (when, kind, team), kick-off line-ups, "dead until kick-off" rule</td></tr>
+      <tr><td><code>possession/video.py</code>, <code>possession/ballpatch.py</code></td><td>Ball detection in the tactical video: classical blobs / learned patches (evaluated, not adopted)</td></tr>
       <tr><td><code>possession/gaps.py</code></td><td>Direction 3 ball-gap features (evaluated, unused)</td></tr>
       <tr><td><code>possession/carrier.py</code></td><td>Player-level carrier model (open data, leave-one-match-out)</td></tr>
       <tr><td><code>possession/path.py</code></td><td>Path decoder: ball from player to player (evaluated, not adopted)</td></tr>
