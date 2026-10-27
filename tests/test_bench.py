@@ -288,3 +288,27 @@ def test_pff_matches_are_held_out_by_fold_others_alone():
     folds = {g[n] for n in names if n.startswith("pff-")}
     assert len(folds) == N_FOLDS
     assert groups_of(list(reversed(names))) == g        # order-independent
+
+
+def test_dead_ball_moves_from_where_play_stopped_to_the_restart_spot():
+    """degrade._dead_ball_motion: a ball parked out of play during a stoppage is moved (thrown
+    between players, then carried by the taker) and is on the restart spot when play resumes."""
+    from bench.degrade import Profile, _dead_ball_motion
+    from bench.match import FPS, A, D, H
+    from tests.toys import Toy
+    t = Toy(14).jog(1.0)
+    t.ball_move(0, 2, (40.0, 30.0), (60.0, 69.0))         # out over the touchline
+    t.ball_still(2, 12, (60.0, 69.0))                     # parked there (DFL style)
+    t.ball_move(12, 14, (55.0, 68.0), (50.0, 55.0))       # the throw-in, from the line
+    t.labels[:] = H
+    t.labels[2 * FPS:12 * FPS] = D
+    t.labels[12 * FPS:] = A
+    m = t.match()
+    ball = m.ball.copy()
+    _dead_ball_motion(ball, m, Profile(), np.random.default_rng(0))
+    dead = slice(2 * FPS, 12 * FPS)
+    xy = ball[:, :2] * np.asarray(m.pitch)
+    assert np.allclose(xy[12 * FPS - 1], (55.0, 68.0), atol=0.5)       # on the spot at the restart
+    assert np.linalg.norm(np.diff(xy[dead], axis=0), axis=1).max() * FPS < 40   # no teleport
+    assert np.linalg.norm(xy[dead] - (60.0, 69.0), axis=1).max() > 3     # it did move
+    assert np.allclose(ball[:2 * FPS], m.ball[:2 * FPS], equal_nan=True)  # live play untouched

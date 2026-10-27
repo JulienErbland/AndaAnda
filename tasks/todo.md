@@ -482,7 +482,10 @@ real-match effect is always less certain than the bench's.
 
 ## Fixes
 
-- [ ] **F0. The ATD's ball "speed" is not a speed (found Oct 27, highest priority).**
+- [x] **F0. The ATD's ball "speed" is not a speed (found Oct 27, highest priority).** DONE Oct 28:
+      speed always derived; degrader moves the dead ball (`dead_ball_moves`); models trained on
+      both behaviours (`--draws 2 --dead-mix`): corrected bench +0.117 (7/7), PFF −0.005 (22/64),
+      real public macroF1 0.871. Height feature: dropped (the value is not a height either).
       `scripts/domain_shift.py`: bench vs real frames are separable at AUC 0.998, 77% of it from
       `ball_last_speed`. The ATD's third ball value correlates 0.06 with the speed from positions
       (median 1.1, p99 5.3, never 0): most likely the ball's HEIGHT in m. The bench derives a real
@@ -551,4 +554,4 @@ real-match effect is always less certain than the bench's.
 - [x] **Review fix 3 (earlier list): Metrica sample games as training data.** Rejected: DFL bench
       +0.000 / −0.003, PFF −0.006 ± 0.002 (19/64) at switch 20 (`results.md`).
 
-Suggested order: F0 -> F3 -> F4 -> C -> D -> E (F1 / F2 done).
+Suggested order: F3 -> F4 -> C -> D -> E (F0, F1, F2 done).

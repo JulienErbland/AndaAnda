@@ -19,9 +19,12 @@
  },
  "profile": "hackathon",
  "feature_set": "restart",
- "draws": 1,
+ "draws": 2,
  "spread": 0.0,
  "with_pff": false,
+ "with_metrica": false,
+ "self_train": 0.0,
+ "dead_mix": true,
  "params": {
   "objective": "multiclass",
   "num_class": 3,

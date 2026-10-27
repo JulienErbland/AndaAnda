@@ -101,15 +101,11 @@ def read_epts(meta_path, raw_path, n_frames=None):
     slot_of, slot_team, specs, pitch = read_meta(meta_path)
     n_frames = n_frames or specs[-1][1]
     ball, players = read_raw(raw_path, specs, len(slot_team), n_frames)
-    # KNOWN ISSUE (Oct 27, scripts/domain_shift.py): on the hackathon ATD the ball's third value
-    # is NOT a speed (correlation 0.06 with the speed from positions; median 1.1, p99 5.3: most
-    # likely the ball's height in m), while the bench derives a real speed. Deriving it here is
-    # the consistent fix, but the current models then miss dead balls on the real match (public
-    # window: 475 vs 1,026 of 1,469 dead frames), because DFL parks a dead ball motionless and the
-    # real one moves. Kept as the models were validated until the degrader models a moving dead
-    # ball and they are retrained (tasks/todo.md, fixes F1-F2).
-    if np.isnan(ball[:, 2]).all():
-        ball[:, 2] = derive_speed(ball[:, :2], pitch)
+    # The ball's speed is always derived from its positions, as on the bench. The hackathon ATD
+    # gives a third ball value on only 7.8% of visible-ball frames (none in the public window), and
+    # it is not a speed (correlation 0.06 with the speed from positions). Trusting it left every
+    # ball-speed feature missing on 92% of real frames (found Oct 27, scripts/domain_shift.py).
+    ball[:, 2] = derive_speed(ball[:, :2], pitch)
     if np.isnan(players[..., 2]).all():
         players[..., 2] = derive_speed(players[..., :2], pitch)
     return ball, players, slot_team, pitch

@@ -15,7 +15,8 @@ label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1
   - `learned.py`: M2, LightGBM evidence (`context.py` + `touches.py` + `restarts.py` features)
     in the same decoder; a model dir may be an ensemble (`ensemble.json`). The submission
     default is `models/ensemble.json`: models/R (DFL labels, restart features) × 0.75 +
-    models/B (hackathon-style labels, touch features) × 0.25, switch 20.
+    models/B (hackathon-style labels, touch features) × 0.25, switch 20; both trained on two
+    degraded copies of each match, the dead ball moving in one and parked in the other.
   - `touches.py`: touch detector (control / deflection / contact) feeding M2.
   - `restarts.py`: restart detector (when, kind, team) and kick-off line-ups; a half is dead
     until its kick-off (the real second half is graded ~2 min before it).
@@ -34,7 +35,10 @@ public window's 17 possessions put it anywhere in 2.5-6.8 per live minute). Full
 | hmm (M1) | 40 | 0.534 | – | 4.35 | 0.413 |
 | M2 + touches (submission until Oct 27) | 10 | 0.611 | 0.479 | 4.28 | 0.622 |
 | R_r + B_r ensemble | 3 | 0.667 | 0.468 | 4.18 | 0.622 |
-| **R_r + B_r ensemble (current default)** | **20** | **0.724** | **0.514** | **3.45** | **0.622** |
+| R_r + B_r ensemble | 20 | 0.724 | 0.514 | 3.45 | 0.622 |
+| *bench corrected Oct 28 (moving dead ball); ball speed derived on the real match:* | | | | | |
+| R_r + B_r ensemble | 20 | 0.567 | 0.514 | 3.71 | 0.444 |
+| **R + B, dead-ball-mixed training (current default)** | **20** | **0.683** | **0.509** | **3.56** | **0.622** |
 
 ## Setup
 
@@ -58,8 +62,8 @@ uv run python -m bench scenarios --preview   # edge-case pass rates + one MP4 re
 uv run python scripts/scenario_page.py       # -> reports/scenarios/index.html
 uv run python scripts/tune_hmm.py            # staged tuning of possession/hmm.py
 uv run python -m bench relabel               # hackathon-style labels -> external/dfl_hk/ (for B)
-MTAH_MODEL_DIR=models/R uv run python -m possession.learned train --features restart   # ~5 min
-MTAH_DFL_LABELS=hackathon MTAH_MODEL_DIR=models/B uv run python -m possession.learned train --features touch
+MTAH_MODEL_DIR=models/R uv run python -m possession.learned train --features restart --draws 2 --dead-mix
+MTAH_DFL_LABELS=hackathon MTAH_MODEL_DIR=models/B uv run python -m possession.learned train --features touch --draws 2 --dead-mix
                                              # each: <dir>/lgbm.txt + held-out <dir>/lomo/
 uv run python scripts/compare_models.py eval --out x.json   # bench + real rate per switch
 uv run python scripts/validate_restarts.py   # restart detector vs DFL official set pieces

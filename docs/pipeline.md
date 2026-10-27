@@ -25,7 +25,8 @@ scorer, held-out by match.
 - **Degrader** (`degrade.py`, calibrated on the real ATD's aggregates): long ball gaps (~41% of
   frames, ~19% live / ~61% dead), tracker blackouts, anonymous fragmented slots (~11 tracklets /
   min, ~20.5 players), wrong-team tracklets, smoothed ball path, false ball blips, identity breaks
-  in duels. Seeded.
+  in duels, and a dead ball that moves (thrown back, carried to the restart spot) like the real
+  one instead of DFL's parked ball. Seeded.
 - **Labels** (`relabel.py`): DFL's own labels change possession twice as often as the hackathon
   GT, so DFL is relabelled with a hackathon-style rule: dead from DFL's ball status; possession
   changes only when the other team *controls* the ball (>= 0.4 s within 1.5 m, moving with it),
@@ -50,7 +51,8 @@ ATD ──► features ──► 2 LightGBM models ──► geometric mean ─�
    - `restarts.py` (6): restarts (still ball >= 1.5 s then kicked; kind from where it is taken,
      team from the taker; kick-off line-ups without the ball); last / next team, kind, time.
 2. **Two evidence models** (LightGBM multiclass, 300 rounds, every 3rd frame, home/away swap
-   augmentation, deterministic), trained on the 7 degraded DFL matches:
+   augmentation, deterministic), trained on the 7 DFL matches degraded twice (dead ball moving /
+   parked, so neither tracker's dead-ball habit becomes a shortcut):
    - `models/R` × 0.75: DFL's labels, context + touches + restarts (54 features);
    - `models/B` × 0.25: hackathon-style labels, context + touches (48 features).
    B is better calibrated on the bench but changes possession too rarely on the real match; R the
@@ -68,12 +70,15 @@ ATD ──► features ──► 2 LightGBM models ──► geometric mean ─�
 |---|---|---|---|---|
 | organisers' baseline (smooth50) | 0.275 | – | 8.29 | 0.326 |
 | M2 single model (until Oct 27) | 0.611 | 0.479 | 4.28 | 0.622 |
-| **R + B ensemble, switch 20 (submission)** | **0.724** | **0.514** | **3.45** | **0.622** |
+| R + B ensemble, switch 20 (Oct 27; old bench) | 0.724 | 0.514 | 3.45 | 0.622 |
+| **R + B dead-ball-mixed, switch 20 (submission; corrected bench)** | **0.683** | **0.509** | **3.56** | **0.622** |
 
-Main open problems: hand-overs are much harder to see on the real tracking than on the bench
-(10 of the 17 public possessions found); and the ATD's ball "speed" is not a speed (most likely
-its height), a bench / real mismatch found by adversarial validation, to fix with the degrader
-(`results.md`, Oct 27; `tasks/todo.md`, F0).
+The bench was corrected on Oct 28 (moving dead ball), which made it harder: on it the Oct 27
+model scores 0.567.
+
+Main open problem: hand-overs are much harder to see on the real tracking than on the bench
+(10 of the 17 public possessions found). Fixed Oct 28: the ATD's ball "speed" was missing on 92%
+of frames (now derived from positions) and DFL's parked dead ball taught "still ball = dead".
 
 Tried and dropped (all in `results.md`): semi-Markov decoder, ball-gap features, player-level
 carrier model and path decoder, snapping changes to controls, Smart Tagging, varied degradation,
@@ -86,6 +91,6 @@ uv sync                                         # Python 3.12, uv.lock
 uv run python -m possession.submit              # data bundle -> submissions/AndaAnda.csv (validated)
 # retrain the models from public data (optional):
 uv run python -m bench fetch && uv run python -m bench relabel
-MTAH_MODEL_DIR=models/R uv run python -m possession.learned train --features restart
-MTAH_DFL_LABELS=hackathon MTAH_MODEL_DIR=models/B uv run python -m possession.learned train --features touch
+MTAH_MODEL_DIR=models/R uv run python -m possession.learned train --features restart --draws 2 --dead-mix
+MTAH_DFL_LABELS=hackathon MTAH_MODEL_DIR=models/B uv run python -m possession.learned train --features touch --draws 2 --dead-mix
 ```

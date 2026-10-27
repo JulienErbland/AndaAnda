@@ -123,9 +123,9 @@ def groups_of(names):
 
 def _rows_job(args):
     """Worker: load, degrade and featurise one (path, draw) -> (name, rows for m and its swap)."""
-    path, k, profile, spread, feature_set = args
+    path, k, profile, spread, feature_set, dead_mix = args
     from bench.__main__ import load_degraded
-    from bench.degrade import degrade, vary
+    from bench.degrade import PROFILES, degrade, vary
     from bench.match import Match
     if k == 0 and spread == 0:
         m = load_degraded(path, profile, 0)
@@ -136,19 +136,21 @@ def _rows_job(args):
             prof = "pff"
         if spread > 0:
             prof = vary(prof, np.random.default_rng(1000 + k + sum(map(ord, clean.name))), spread)
+        if dead_mix and k % 2 == 1:     # odd draws: the dead ball parked (DFL / PFF-like)
+            prof = replace(PROFILES[prof] if isinstance(prof, str) else prof, dead_ball_moves=False)
         m = degrade(clean, prof, seed=k + sum(map(ord, clean.name)))
     return m.name, [training_rows(v, feature_set) for v in (m, swap_teams(m))]
 
 
 def train(feature_set="base", draws=1, spread=0.0, profile="hackathon", with_pff=False, workers=4,
-          with_metrica=False, self_train=0.0):
+          with_metrica=False, self_train=0.0, dead_mix=False):
     """Full model + one held-out model per group (groups_of). Each match's rows are computed once,
     in parallel, and reused by every fit. draws > 1: each match enters `draws` times, each with its
     own degrader seed and, when spread > 0, its own random neighbour of the profile (degrade.vary)."""
     from multiprocessing import Pool
     from bench.__main__ import match_paths
     paths = match_paths(["dfl"] + (["pff"] if with_pff else []) + (["metrica"] if with_metrica else []))
-    jobs = [(p, k, profile, spread, feature_set) for p in paths for k in range(draws)]
+    jobs = [(p, k, profile, spread, feature_set, dead_mix) for p in paths for k in range(draws)]
     rows = {}
     with Pool(workers) as pool:
         for i, (name, r) in enumerate(pool.imap(_rows_job, jobs)):
@@ -166,7 +168,7 @@ def train(feature_set="base", draws=1, spread=0.0, profile="hackathon", with_pff
         json.dump({"trained_on": sorted(rows), "groups": groups, "profile": profile,
                    "feature_set": feature_set, "draws": draws, "spread": spread,
                    "with_pff": with_pff, "with_metrica": with_metrica,
-                   "self_train": self_train, "params": LGB_PARAMS,
+                   "self_train": self_train, "dead_mix": dead_mix, "params": LGB_PARAMS,
                    "rounds": ROUNDS}, f, indent=1)
     print("full model ->", os.path.relpath(FULL_MODEL, ROOT), flush=True)
     for g in sorted(set(groups.values())):
@@ -266,6 +268,8 @@ if __name__ == "__main__":
                     help="spread of the degrader parameters per copy (degrade.vary), e.g. 0.25")
     ap.add_argument("--profile", default="hackathon", help="degrader profile (clean = no degradation)")
     ap.add_argument("--with-pff", action="store_true", help="also train on the 64 PFF matches")
+    ap.add_argument("--dead-mix", action="store_true",
+                    help="with --draws 2: odd draws keep the dead ball parked (robust to both trackers)")
     ap.add_argument("--self-train", type=float, default=0.0,
                     help="weight of the real match's pseudo-labelled rows (possession/selftrain.py)")
     ap.add_argument("--with-metrica", action="store_true",
@@ -273,10 +277,10 @@ if __name__ == "__main__":
     ap.add_argument("--overwrite-submission-model", action="store_true",
                     help="allow experiment options to write into models/ (the submission model)")
     a = ap.parse_args()
-    experiment = (a.draws, a.vary, a.profile, a.with_pff, a.with_metrica, a.self_train) != (
-        1, 0.0, "hackathon", False, False, 0.0)
+    experiment = (a.draws, a.vary, a.profile, a.with_pff, a.with_metrica, a.self_train, a.dead_mix) != (
+        1, 0.0, "hackathon", False, False, 0.0, False)
     if experiment and not os.environ.get("MTAH_MODEL_DIR") and not a.overwrite_submission_model:
         sys.exit("refusing to overwrite the submission model in models/ with experiment options; "
                  "set MTAH_MODEL_DIR=models_exp/<name> (or pass --overwrite-submission-model)")
     train(a.features, a.draws, a.vary, a.profile, a.with_pff, with_metrica=a.with_metrica,
-          self_train=a.self_train)
+          self_train=a.self_train, dead_mix=a.dead_mix)

@@ -165,7 +165,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   pipeline stands, where it still fails and what comes next. Part two explains every stage in
   depth: the theory behind each tool, why we chose it, and what it measured on held-out matches.
   Every number is tracked in <a href="results.md"><code>docs/results.md</code></a>.</p>
-  <p class="muted mono" style="font-size:0.8rem">Status as of <!--DATE-->Oct 27, 2026<!--/DATE--></p>
+  <p class="muted mono" style="font-size:0.8rem">Status as of <!--DATE-->Oct 28, 2026<!--/DATE--></p>
   <div class="legend" aria-label="Label colours">
     <span><i style="background:var(--home)"></i>H: home (Barcelona) in possession</span>
     <span><i style="background:var(--away)"></i>A: away (Athletic) in possession</span>
@@ -179,9 +179,9 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <h2>Where we stand</h2>
   <div class="stats">
     <div class="stat"><span class="k">Best method</span><span class="v">M2 ensemble</span><span class="d">two LightGBM evidence models + Viterbi decoder</span></div>
-    <div class="stat"><span class="k">Bench spellF1 (fixed bench)</span><span class="v">0.724</span><span class="d">hackathon-style labels, realistic tracking; baseline 0.28; Oct 22: 0.611. PFF (eval only): 0.514</span></div>
+    <div class="stat"><span class="k">Bench spellF1 (fixed bench)</span><span class="v">0.683</span><span class="d">bench corrected Oct 28 (moving dead ball; previous model 0.567 on it). PFF (eval only): 0.509</span></div>
     <div class="stat"><span class="k">Public window spellF1</span><span class="v">0.622</span><span class="d">17 possessions: a sanity check, not a target</span></div>
-    <div class="stat"><span class="k">Real possessions / live min</span><span class="v">3.45</span><span class="d">public labels: 4.25 (17 possessions: 2.5-6.8)</span></div>
+    <div class="stat"><span class="k">Real possessions / live min</span><span class="v">3.56</span><span class="d">public labels: 4.25 (17 possessions: 2.5-6.8)</span></div>
   </div>
   <ul>
     <li><strong>The method.</strong> A gradient-boosted model reads 42 context features (team shape,
@@ -208,7 +208,13 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
     better on the bench (+0.09) but find only 8 on the real match. Since Oct 27 the submission
     mixes one such model in at a quarter weight, at a switch that keeps the real change rate; it
     still finds 10. Ball detection in the video, aimed at the source, did not pass its gate (§17).</li>
-    <li><strong>Latest (Oct 27, evening): switch chosen on the benches.</strong> The public
+    <li><strong>Latest (Oct 28): two data bugs fixed.</strong> The ATD's ball "speed" is missing on
+    92% of frames and not a speed where present, so every ball-speed feature was empty on the real
+    match; it is now derived from positions. That exposed a bench artefact: DFL parks a dead ball,
+    the real one is thrown back and carried, so the models had learned "still ball = dead". The
+    degrader now moves the dead ball, and the models train on both behaviours: +0.117 on the
+    corrected bench (7/7), −0.005 on PFF (whose dead ball is 90% invisible).</li>
+    <li><strong>Oct 27, evening: switch chosen on the benches.</strong> The public
     rate (17 possessions) only bounds the real rate to 2.5-6.8 per live minute, so the switch is
     now chosen on the DFL bench and on PFF, a 64-match evaluation-only bench with independent
     labels: switch 20, bench 0.724, PFF 0.514 (old submission 0.611 / 0.479). Adversarial

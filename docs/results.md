@@ -696,3 +696,41 @@ event-derived labels). Same tracker family as the hackathon data, so the hope wa
 No gain on either bench. Metrica's labels come from events (approximate), and its clean ball is
 missing almost exactly when the ball is dead, which the degrader only partly hides: the extra
 matches add noise more than information.
+
+### F0: the ball speed fixed, the dead ball made to move (Oct 28)
+
+Root cause, measured more closely: the ATD gives a third ball value on only 7.8% of visible-ball
+frames (29 stretches, none in the public window), and it is not a speed (correlation 0.06; not a
+height either: a resting ball reads 1.1). Trusting it left every ball-speed feature MISSING on
+92% of real frames, where the bench always has a speed. Now `bench/epts.py` always derives it.
+
+That exposed a second bench artefact: DFL parks a dead ball where it left the pitch. Dead frames
+with a visible ball (`scripts/dead_ball_realism.py`):
+
+| | speed p10/50/90 (m/s) | still | nearest player | outside the lines |
+|---|---|---|---|---|
+| real (public window; 4 stoppages) | 1.0 / 2.7 / 9.3 | 1% | 2.9 m | 11% |
+| DFL bench before | 0.2 / 0.5 / 0.9 | 22% | 4-5 m | 52-73% |
+| **DFL bench now** (`Profile.dead_ball_moves`) | 0.7 / 2.9 / 8.4 | 2% | 2.3 m | 7% |
+| PFF (pff profile) | 0.3 / 1.0 / 4.3 | 10% | 2.6 m | 14% (dead ball seen 10%) |
+
+The degrader now moves the dead ball: hops between nearby players (thrown / kicked back), then
+the restart taker carries it to the spot (`_dead_ball_motion`, tested). Models trained on the old
+bench read "still ball = dead" and break on a moving dead ball.
+
+| switch 20 | corrected DFL bench | PFF | real public (no decision) | real rate |
+|---|---|---|---|---|
+| previous ensemble (R_r + B_r) | 0.567 | 0.514 | 0.444, macro 0.709* | 3.71* |
+| F0 pure (moving dead ball only) | 0.683 | 0.496 | 0.667, macro 0.865 | 3.54 |
+| **F0 mixed (adopted)**: 2 draws per match, dead ball moving / parked (`--dead-mix`) | **0.683** | **0.509** | 0.622, macro **0.871** | 3.56 |
+
+*with the derived ball speed; with the old missing speed it was 0.622 / 0.839 / 3.45.
+Mixed vs previous, paired: corrected bench +0.117 ± 0.006 (7/7); PFF −0.005 ± 0.002 (22/64;
+PFF's dead ball is 90% invisible, so the "still = dead" shortcut still pays there). Mixed vs pure:
+bench +0.000, PFF +0.014 (58/64). Switch 20 kept: 20 vs 30 within noise on both benches.
+Domain classifier AUC 0.998 -> 0.994; `ball_last_speed` 77% -> 28% of its gain; the rest is
+team shape (Barcelona's high line) and team-sign features (Barcelona keeps the ball).
+
+Submission: 191 possessions, mean 16.8 s; byte-identical; validated. Gates re-based on the
+corrected bench (`tests/test_targets.py`); regressions vs the previous model there: slow play
+74% vs 81%, hold through a ball gap 52% vs 56%.

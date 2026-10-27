@@ -99,6 +99,18 @@ class Profile:
     # break rate x (1 + gain) near an opponent, rescaled to keep the mean rate (tracklet_s).
     break_duel_gain: float = 80.0     # track ends near an opponent: real 33%, bench 12% -> 33%
     duel_m: float = 2.0
+    # Dead-ball motion (Oct 27). DFL parks a dead ball where it left the pitch; the real one is
+    # thrown back, carried to the spot and placed. Public window, dead frames with a ball: speed
+    # p10/50/90 1.0/2.7/9.3 m/s, still 1%, outside the lines 11% (DFL: 0.2/0.5/0.9, 22%, 52-73%).
+    # On: the ball hops between nearby players, then the restart taker carries it to the spot.
+    # Fitted Oct 27 (scripts/dead_ball_realism.py): bench now 0.7/2.9/8.4 m/s, still 2%, nearest
+    # player 2.3 m, outside 7% (the real target is 4 stoppages: not fitted any closer).
+    dead_ball_moves: bool = True
+    dead_hop_ms: float = 7.0           # median speed of a throw / kick back between players
+    dead_hold_s: tuple = (0.5, 2.0)    # time near a player between hops
+    dead_offset_m: tuple = (1.0, 4.5)  # ball's distance to the player holding it
+    dead_carry_s: tuple = (1.0, 4.0)   # carried by the taker to the restart spot
+    dead_place_s: float = 0.4
 
 
 PROFILES = {
@@ -111,7 +123,8 @@ PROFILES = {
     # (live ~35%, dead ~90%), so no extra ball gaps; everything else as the hackathon profile.
     # Measured (degraded PFF vs real): gap-start ball speed p50/p90 2.26/6.1 vs 1.71/6.45, players
     # within 3 m 0.93 vs 1.04, 20.0 players tracked vs 20.5. Track ends/min 27 vs 11 (camera cuts).
-    "pff": Profile(ball_missing_alive=0.0, ball_missing_dead=0.0, gap_from_ballout=False),
+    "pff": Profile(ball_missing_alive=0.0, ball_missing_dead=0.0, gap_from_ballout=False,
+                   dead_ball_moves=False),
 }
 
 FPS = 25
@@ -145,6 +158,8 @@ def degrade(match, profile="hackathon", seed=0):
     metres = np.asarray(match.pitch, dtype=np.float32)
 
     ball = match.ball.copy()
+    if profile.dead_ball_moves:
+        _dead_ball_motion(ball, match, profile, rng)
     if profile.ball_smooth_s > 0:
         from .epts import derive_speed
         ball[:, :2] = smooth_track(ball[:, :2], profile.ball_smooth_s)
@@ -161,6 +176,77 @@ def degrade(match, profile="hackathon", seed=0):
     if profile.ball_false_per_min > 0:      # drawn last: off leaves every other draw unchanged
         _false_ball(ball, match, profile, rng)
     return replace(match, ball=ball, players=players, slot_team=slot_team)
+
+
+def _dead_ball_motion(ball, match, p, rng):
+    """In place, clean tracking: during each stoppage the ball hops between nearby players
+    (thrown / kicked back at dead_hop_ms, then held near the player at an offset for dead_hold_s),
+    the last hop reaching the player who restarts, who carries it to the restart spot, where it
+    rests for up to dead_place_s. Needs labels (dead runs) and the ball at the restart frame."""
+    if match.labels is None:
+        return
+    m = np.asarray(match.pitch, dtype=np.float64)
+    pl_all = match.players[..., :2].astype(np.float64) * m
+    dead = np.r_[False, match.labels == D, False].astype(np.int8)
+    edges = np.flatnonzero(np.diff(dead))
+    for a, b in zip(edges[::2], edges[1::2]):
+        if b >= match.n_frames or b - a < FPS or np.isnan(ball[b, 0]):
+            continue
+        spot = ball[b, :2].astype(np.float64) * m
+        d = np.linalg.norm(pl_all[b] - spot, axis=1)
+        if np.all(np.isnan(d)):
+            continue
+        taker = int(np.nanargmin(d))
+        carry = int(round(rng.uniform(*p.dead_carry_s) * FPS))
+        place = int(round(rng.uniform(0, p.dead_place_s) * FPS))
+        end_hops = max(a, b - place - carry)
+        pos = ball[a, :2].astype(np.float64) * m if not np.isnan(ball[a, 0]) else spot
+        path = np.full((b - a, 2), np.nan)
+        t = a
+        while t < end_hops:
+            last = t + 1 >= end_hops - FPS            # no room for another hop: go to the taker
+            if last:
+                who = taker
+            else:
+                dd = np.linalg.norm(pl_all[t] - pos, axis=1)
+                near = np.argsort(np.where(np.isnan(dd), np.inf, dd))[:5]
+                near = near[np.isfinite(dd[near])]
+                if not len(near):
+                    break
+                who = int(rng.choice(near))
+            ang = rng.uniform(0, 2 * np.pi)
+            off = rng.uniform(*p.dead_offset_m) * np.array([np.cos(ang), np.sin(ang)])
+            speed = rng.lognormal(np.log(p.dead_hop_ms), 0.6)
+            target_t = pl_all[min(t, b - 1), who]
+            if np.isnan(target_t[0]):
+                target_t = spot
+            dur = int(np.clip(np.linalg.norm(target_t + off - pos) / speed * FPS, 3, max(3, end_hops - t)))
+            t1 = min(end_hops, t + dur)
+            f = np.linspace(0, 1, t1 - t, endpoint=False)[:, None]
+            arrive = pl_all[t1 - 1, who] + off if not np.isnan(pl_all[t1 - 1, who, 0]) else target_t
+            path[t - a:t1 - a] = pos * (1 - f) + arrive * f
+            pos, t = arrive, t1
+            if last or t >= end_hops:
+                break
+            hold = min(end_hops, t + int(round(rng.uniform(*p.dead_hold_s) * FPS)))
+            seg = pl_all[t:hold, who] + off
+            seg = np.where(np.isnan(seg), pos, seg)
+            path[t - a:hold - a] = seg
+            if hold > t:
+                pos = seg[-1]
+            t = hold
+        # carried by the taker to the spot, then placed
+        c0 = max(t, a)
+        who_tr = pl_all[c0:b - place, taker]
+        if len(who_tr):
+            start_off = pos - (who_tr[0] if not np.isnan(who_tr[0, 0]) else pos)
+            end_off = spot - (who_tr[-1] if not np.isnan(who_tr[-1, 0]) else spot)
+            g_ = np.linspace(0, 1, len(who_tr))[:, None]
+            seg = who_tr + start_off * (1 - g_) + end_off * g_
+            path[c0 - a:b - place - a] = np.where(np.isnan(seg), spot, seg)
+        path[b - place - a:] = spot
+        path = np.where(np.isnan(path), spot, path)
+        ball[a:b, :2] = (path / m).astype(ball.dtype)
 
 
 def _false_ball(ball, match, p, rng):
