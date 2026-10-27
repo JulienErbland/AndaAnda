@@ -408,3 +408,22 @@ with a hackathon-like rule so the bench measures the right definition of possess
       far), public 0.586; PFF reproduces the real under-changing (3.4 vs 4.72 per live min)
 - [ ] tune P's switch penalty on the PFF folds so the predicted rate matches the truth; check the
       real rate / public window; candidate to replace the submission
+
+---
+
+# JEPA (Oct 28): worth a closer look?
+
+Open question, nothing built. A JEPA learns without labels by predicting the representation of a
+masked part of the input. Our limits are few labels (7 DFL matches, PFF blocked by its licence)
+and the gap between the bench and the real tracking, so self-supervised pretraining could help
+with both. No published work applies JEPA to football tracking yet.
+- [ ] read further before building anything:
+      T-JEPA / HiT-JEPA (trajectories), V-JEPA 2 / 2.1 (video, MIT code, needs a GPU in practice),
+      PathCRF (ball-free possession path on the same 7 DFL matches, code public),
+      "Multi-Modal Soccer Scene Analysis with Masked Pre-Training" (tactical-camera crops)
+- [ ] best candidate: a small JEPA on tracking (DFL + Metrica + the real ATD, run locally), masking
+      the ball and some players; its embeddings become extra M2 features, decoder unchanged
+- [ ] go/no-go: linear probe of H/A/D on the embeddings, held out per DFL match; then paired
+      comparison vs the submission at the same real-match change rate
+- Constraints: CPU only on this machine; weights derived from the real match can't be committed,
+  so pretraining would have to run inside the deterministic submit command (adds torch)
