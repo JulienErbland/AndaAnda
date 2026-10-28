@@ -38,7 +38,10 @@ public window's 17 possessions put it anywhere in 2.5-6.8 per live minute). Full
 | R_r + B_r ensemble | 20 | 0.724 | 0.514 | 3.45 | 0.622 |
 | *bench corrected Oct 28 (moving dead ball); ball speed derived on the real match:* | | | | | |
 | R_r + B_r ensemble | 20 | 0.567 | 0.514 | 3.71 | 0.444 |
-| **R + B, dead-ball-mixed training (current default)** | **20** | **0.683** | **0.509** | **3.56** | **0.622** |
+| R + B, dead-ball-mixed training | 20 | 0.683 | 0.509 | 3.56 | 0.622 |
+| *bench recalibrated Oct 28 (ball gaps: live 7% / dead 80%, ending at restarts):* | | | | | |
+| R + B, dead-ball-mixed training | 20 | 0.710 | 0.509 | 3.56 | 0.622 |
+| **R + B retrained on it (current default)** | **20** | **0.725** | **0.537** | **3.69** | **0.622** |
 
 ## Setup
 

@@ -1,6 +1,11 @@
 """Adversarial validation: can a classifier tell the bench's frames from the real match's?
 
     uv run python scripts/domain_shift.py
+    MTAH_DFL_LABELS=hackathon uv run python scripts/domain_shift.py --near-changes
+
+--near-changes: only frames within NEAR_S of a possession change (H <-> A). Bench: its labels'
+changes. Real: either the public window's true changes (few but unbiased) or the submission's
+predicted changes over the whole match (many, but where the model already sees evidence).
 
 Rows: the submission's per-frame features (feature set "restart") on graded frames, every
 STEP-th frame, from the 7 degraded DFL matches (bench, label 0) and the real match (label 1).
@@ -26,9 +31,24 @@ LGB = dict(objective="binary", learning_rate=0.05, num_leaves=31, min_data_in_le
            num_threads=4)
 
 
-def rows(match, label, gid):
+NEAR_S = 2.0
+
+
+def near_changes(labels):
+    """(T,) True within NEAR_S of an H <-> A change of `labels`."""
+    from bench.match import A, H
+    ch = np.flatnonzero(((labels[1:] == H) & (labels[:-1] == A)) | ((labels[1:] == A) & (labels[:-1] == H))) + 1
+    out = np.zeros(len(labels), bool)
+    w = int(NEAR_S * FPS)
+    for t in ch:
+        out[max(0, t - w):t + w] = True
+    return out
+
+
+def rows(match, label, gid, mask=None, step=STEP):
     X_, names = context.matrix(learned.frame_features(match, "restart"))
-    keep = np.flatnonzero(graded_mask(match))[::STEP]
+    sel = graded_mask(match) if mask is None else graded_mask(match) & mask
+    keep = np.flatnonzero(sel)[::step]
     groups = np.array(["{}-{}".format(gid, t // (60 * FPS)) for t in keep])
     return X_[keep], np.full(len(keep), label), groups, names
 
@@ -57,10 +77,29 @@ def cv_auc(X_, y, groups, cols):
 
 
 def main():
-    parts = [rows(load_degraded(p, "hackathon", 0).without_labels(), 0, i)
-             for i, p in enumerate(match_paths(["dfl"]))]
-    hm = load_degraded(match_paths(["hackathon"])[0], "hackathon", 0).without_labels()
-    parts.append(rows(hm, 1, "real"))
+    import argparse
+    from bench.match import Match, X
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--near-changes", action="store_true")
+    ap.add_argument("--real", choices=["public", "predicted"], default="public")
+    a = ap.parse_args()
+    parts = []
+    for i, p in enumerate(match_paths(["dfl"])):
+        clean = Match.load(p)
+        mask = near_changes(clean.labels) if a.near_changes else None
+        parts.append(rows(load_degraded(p, "hackathon", 0).without_labels(), 0, i, mask,
+                          2 if a.near_changes else STEP))
+    path = match_paths(["hackathon"])[0]
+    hm = load_degraded(path, "hackathon", 0).without_labels()
+    mask, step = None, STEP
+    if a.near_changes:
+        step = 1
+        if a.real == "public":
+            gt = Match.load(path).labels
+            mask = near_changes(gt) & (gt != X)
+        else:
+            mask = near_changes(learned.predict(hm))
+    parts.append(rows(hm, 1, "real", mask, step))
     names = parts[0][3]
     X_ = np.concatenate([p[0] for p in parts])
     y = np.concatenate([p[1] for p in parts])

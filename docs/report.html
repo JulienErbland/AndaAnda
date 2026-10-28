@@ -179,9 +179,9 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <h2>Where we stand</h2>
   <div class="stats">
     <div class="stat"><span class="k">Best method</span><span class="v">M2 ensemble</span><span class="d">two LightGBM evidence models + Viterbi decoder</span></div>
-    <div class="stat"><span class="k">Bench spellF1 (fixed bench)</span><span class="v">0.683</span><span class="d">bench corrected Oct 28 (moving dead ball; previous model 0.567 on it). PFF (eval only): 0.509</span></div>
+    <div class="stat"><span class="k">Bench spellF1 (fixed bench)</span><span class="v">0.725</span><span class="d">bench corrected Oct 28 (moving dead ball, real ball-gap split). PFF (eval only): 0.537 (Oct 27: 0.514)</span></div>
     <div class="stat"><span class="k">Public window spellF1</span><span class="v">0.622</span><span class="d">17 possessions: a sanity check, not a target</span></div>
-    <div class="stat"><span class="k">Real possessions / live min</span><span class="v">3.56</span><span class="d">public labels: 4.25 (17 possessions: 2.5-6.8)</span></div>
+    <div class="stat"><span class="k">Real possessions / live min</span><span class="v">3.69</span><span class="d">public labels: 4.25 (17 possessions: 2.5-6.8)</span></div>
   </div>
   <ul>
     <li><strong>The method.</strong> A gradient-boosted model reads 42 context features (team shape,
@@ -208,7 +208,12 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
     better on the bench (+0.09) but find only 8 on the real match. Since Oct 27 the submission
     mixes one such model in at a quarter weight, at a switch that keeps the real change rate; it
     still finds 10. Ball detection in the video, aimed at the source, did not pass its gate (§17).</li>
-    <li><strong>Latest (Oct 28): two data bugs fixed.</strong> The ATD's ball "speed" is missing on
+    <li><strong>Latest (Oct 28): the bench hid the ball at hand-overs.</strong> Adversarial
+    validation near possession changes showed the real tracker sees the ball at 93-96% of them,
+    the bench at 77%: its live / dead split of missing ball (19% / 61%, from a proxy) was wrong;
+    real is ~7% / ~80%, with a stoppage's gap ending at the restart. Retrained: +0.015 on the
+    bench (6/7), +0.028 on PFF (61/64), PFF 0.537.</li>
+    <li><strong>Oct 28: two data bugs fixed.</strong> The ATD's ball "speed" is missing on
     92% of frames and not a speed where present, so every ball-speed feature was empty on the real
     match; it is now derived from positions. That exposed a bench artefact: DFL parks a dead ball,
     the real one is thrown back and carried, so the models had learned "still ball = dead". The

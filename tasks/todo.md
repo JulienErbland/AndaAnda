@@ -513,7 +513,9 @@ real-match effect is always less certain than the bench's.
 - [x] **F2. The public window never decides.** Adopted as policy. One possession moves spellF1 by ~0.03-0.07 here
       (2·TP/(n_pred + 17) with ~10 predicted); several past "not adopted: public drops" calls
       were within that step. Keep it as an alignment / format check only.
-- [ ] **F3 (= review A). Adversarial validation near changes.** The overall run found F0; repeat
+- [x] **F3 (= review A). Adversarial validation near changes.** DONE Oct 28: the bench hid the
+      ball at 23% of hand-overs (real: 4-7%); ball-gap split recalibrated (live 7% / dead 80%,
+      gaps end at restarts); retrained: bench +0.015 (6/7), PFF +0.028 (61/64). The overall run found F0; repeat
       on frames within ±2 s of a possession change (bench: true changes; real: the public
       window's 12 changes + the model's predicted changes) to see which touch / control features
       fail to transfer there. Effort 1-2 h. Then fix the degrader or drop the features.
@@ -554,4 +556,4 @@ real-match effect is always less certain than the bench's.
 - [x] **Review fix 3 (earlier list): Metrica sample games as training data.** Rejected: DFL bench
       +0.000 / −0.003, PFF −0.006 ± 0.002 (19/64) at switch 20 (`results.md`).
 
-Suggested order: F3 -> F4 -> C -> D -> E (F0, F1, F2 done).
+Suggested order: F4 -> C -> D -> E (F0-F3 done).

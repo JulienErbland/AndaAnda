@@ -734,3 +734,42 @@ team shape (Barcelona's high line) and team-sign features (Barcelona keeps the b
 Submission: 191 possessions, mean 16.8 s; byte-identical; validated. Gates re-based on the
 corrected bench (`tests/test_targets.py`); regressions vs the previous model there: slow play
 74% vs 81%, hold through a ball gap 52% vs 56%.
+
+### F3: adversarial validation near changes -> the ball-gap split was wrong (Oct 28)
+
+`scripts/domain_shift.py --near-changes` (frames within 2 s of an H <-> A change; real: the
+public window's 12 changes, or the submission's 90 predicted ones). Most shifted features there:
+ball visibility, then control / touch evidence. Measured directly:
+
+| near possession changes | bench | real (public, 12) | real (predicted, 90) |
+|---|---|---|---|
+| ball seen | 77% | 96% | 93% |
+| control detected (share of frames) | 21% | 13% | 17% |
+| new team's control within 1 s of the change | 36% | 17% | 30% |
+| any touch by the new team within 1 s | 57% | 58% | 60% |
+
+The real tracker SEES the ball at hand-overs; the bench hid it. Cause: the Oct 20 live / dead
+split of missing ball (19% / 61%, from a speed-bin proxy) was wrong. Real: ~7% of live frames
+(public window 6.5%; frames the model calls live 7%, confident ones 4%) and ~75-80% of dead ones.
+Gap placement weights do not change it (gaps are long); what does: gaps that start in a stoppage
+end at the restart (+ up to 1 s), applied per gap (`Profile.gap_ends_at_restart`, tested).
+
+| | real | bench before | bench now |
+|---|---|---|---|
+| ball missing overall / live / dead | 41% / ~7% / ~75-80% | 41% / 19% / 61% | 40% / 7% / 80% |
+| ball seen near changes | 93-96% | 77% | 91% |
+| gap length median / p90 (not fitted) | 10.7 / 34 s | – | 11.3 / 35 s |
+
+Retrained (dead-ball mix), switch 20:
+
+| | recalibrated bench | PFF | real rate | public |
+|---|---|---|---|---|
+| previous submission (R_v + B_v) | 0.710 | 0.509 | 3.56 | 0.622 |
+| **R_g + B_g (adopted)** | **0.725** (+0.015 ± 0.004, 6/7) | **0.537** (+0.028 ± 0.003, 61/64) | 3.69 | 0.622 |
+| Oct 27 model (R_r + B_r), on PFF | – | 0.514 (new: +0.023 ± 0.003, 56/64) | – | – |
+
+Submission: 198 possessions, mean 16.2 s; byte-identical; validated. Gates re-based; recorded
+regressions: dead ball visible 63% vs 80% (79 clips), ball-gap hold 27% vs 35% (26 clips).
+The smaller control-evidence gap (new-team control within 1 s: 17-30% real vs 36% bench) is
+second-order: the ball moves with the nearest player on 55-59% of close frames on the real
+tracking vs 65% on the bench.

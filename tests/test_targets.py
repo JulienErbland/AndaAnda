@@ -8,11 +8,11 @@ TARGETS are what each direction is for. They are xfail(strict=True) until reache
 passes, pytest reports XPASS as a failure, which is the cue to move it into FLOORS.
 
 Scored on the hackathon-style labels (bench/relabel.py v2), the bench's yardstick since Oct 22,
-with the dead ball moving like the real one (degrader, Oct 28). Re-based Oct 28 for the
-dead-ball-mixed R + B ensemble at switch 20; comments give its value, then the previous
-ensemble's (R_r + B_r, parked-dead-ball training) on this same bench. The previous one called
-nearly every visible dead ball live here (dead_ball_visible 5%). Two scenarios are below it and
-stay recorded as regressions: slow_play (74% vs 81%) and ball_gap_hold (52% vs 56%).
+with the dead ball moving like the real one and the ball's gaps split like the real tracker's
+(live 7% / dead 80%, gaps ending at restarts; degrader, Oct 28). Re-based Oct 28 for the R + B
+ensemble at switch 20 (R_g / B_g); comments give its value, then the previous submission's
+(R_v + B_v) on this same bench. Recorded regressions: dead_ball_visible (63% vs 80%, 79 clips)
+and ball_gap_hold (27% vs 35%, only 26 clips now that live gaps are rare: moved to targets).
 """
 
 import os
@@ -26,29 +26,29 @@ os.environ.setdefault("MTAH_DFL_LABELS", "hackathon")
 METHOD = "learned"
 
 FLOORS = {
-    "spell_f1_mean": 0.66,          # 0.681 / 0.567
-    "macro_f1": 0.87,               # 0.890 / 0.806
-    "pass_past_opponents": 0.88,    # 91% / 91%
-    "long_stoppage": 0.94,          # 97% / 60%
-    "dead_ball_visible": 0.74,      # 78% / 5%
+    "spell_f1_mean": 0.70,          # 0.716 / 0.710
+    "macro_f1": 0.89,               # 0.904 / 0.903
+    "pass_past_opponents": 0.90,    # 93% / 94%
+    "long_stoppage": 0.96,          # 99% / 99%
+    "dead_ball_visible": 0.58,      # 63% / 80% (regression; 79 clips)
     "duel_flurry": 0.40,            # 50% / 50% (6 clips)
-    "slow_play": 0.70,              # 74% / 81% (regression)
-    "interception": 0.22,           # 25% / 26%
-    "restart_same": 0.50,           # 53% / 20% (direction 1)
-    "restart_other": 0.47,          # 50% / 22% (direction 1)
-    "ball_gap_hold": 0.48,          # 52% / 56% (regression; direction 3 target 45%, reached)
+    "slow_play": 0.80,              # 84% / 79%
+    "interception": 0.28,           # 31% / 30%
+    "restart_same": 0.54,           # 58% / 52% (direction 1)
+    "restart_other": 0.54,          # 58% / 56% (direction 1)
+    "blackout_change": 0.27,        # 30% / 27% (direction 3 target 30%, reached; 30 clips)
 }
 
 TARGETS = [
     # direction 1: restart detector
-    ("restart_same", 0.70, 1),      # 53%
-    ("restart_other", 0.70, 1),     # 50%
+    ("restart_same", 0.70, 1),      # 58%
+    ("restart_other", 0.70, 1),     # 58%
     ("kickoff", 0.50, 1),           # 12% (8 clips)
     # direction 2: touch detector
-    ("short_spell", 0.15, 2),       # 7% (15 clips on these labels)
-    # direction 3: ball-gap reasoning
-    ("change_in_ball_gap", 0.40, 3),  # 32%
-    ("blackout_change", 0.30, 3),   # 19%
+    ("short_spell", 0.15, 2),       # 0% (15 clips on these labels)
+    # direction 3: ball-gap reasoning (few live gaps now: 26-39 clips)
+    ("change_in_ball_gap", 0.40, 3),  # 23%
+    ("ball_gap_hold", 0.45, 3),     # 27% (previous submission 35%)
 ]
 
 

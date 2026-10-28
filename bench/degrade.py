@@ -45,8 +45,8 @@ from .match import A, D, H, Match, graded_mask
 @dataclass(frozen=True)
 class Profile:
     # Ball dropout. Targets are fractions of graded frames of that kind with no ball.
-    ball_missing_alive: float = 0.19
-    ball_missing_dead: float = 0.61
+    ball_missing_alive: float = 0.07   # Oct 28 (see gap_ends_at_restart); was 0.19 / 0.61
+    ball_missing_dead: float = 0.80
     ball_gap_median_s: float = 9.5     # lognormal part of the gap length
     ball_gap_sigma: float = 0.75
     ball_flicker_share: float = 0.11   # share of gaps that are short flickers
@@ -111,6 +111,12 @@ class Profile:
     dead_offset_m: tuple = (1.0, 4.5)  # ball's distance to the player holding it
     dead_carry_s: tuple = (1.0, 4.0)   # carried by the taker to the restart spot
     dead_place_s: float = 0.4
+    # Ball visibility split (Oct 28): the real ball is missing on ~7% of live frames (public
+    # window 6.5%; frames the model calls live 7%) and is seen at 93-96% of hand-overs; Oct 20's
+    # 19% live / 61% dead came from a speed-bin proxy and hid the ball at 23% of the bench's
+    # hand-overs. Gaps that start in a stoppage end at the restart (+ up to restart_lag_s).
+    gap_ends_at_restart: bool = True
+    restart_lag_s: float = 1.0
 
 
 PROFILES = {
@@ -124,7 +130,7 @@ PROFILES = {
     # Measured (degraded PFF vs real): gap-start ball speed p50/p90 2.26/6.1 vs 1.71/6.45, players
     # within 3 m 0.93 vs 1.04, 20.0 players tracked vs 20.5. Track ends/min 27 vs 11 (camera cuts).
     "pff": Profile(ball_missing_alive=0.0, ball_missing_dead=0.0, gap_from_ballout=False,
-                   dead_ball_moves=False),
+                   dead_ball_moves=False, gap_ends_at_restart=False),
 }
 
 FPS = 25
@@ -341,6 +347,16 @@ def _ball_gaps(match, p, rng):
         if len(dead_start):
             idx = np.searchsorted(dead_start, np.arange(n), side="right") - 1
             run_start = np.where(idx >= 0, dead_start[np.maximum(idx, 0)], 0)
+
+    if p.gap_ends_at_restart:
+        # A gap that starts in a stoppage ends when play restarts (+ a short reacquisition lag):
+        # the real tracker finds the ball again at restarts. Applied per gap, before gaps merge.
+        dead_end = np.flatnonzero(dead & ~np.concatenate((dead[1:], [False]))) + 1
+        if len(dead_end):
+            k = np.minimum(np.searchsorted(dead_end, np.arange(n), side="left"), len(dead_end) - 1)
+            relag = (rng.random(n) * p.restart_lag_s * FPS).astype(np.int64)
+            to_restart = dead_end[k] - np.arange(n) + relag
+            lengths = np.where(dead, np.maximum(1, np.minimum(lengths, to_restart)), lengths)
 
     def cover():
         prob = weight * np.where(dead, scale["dead"], scale["alive"])

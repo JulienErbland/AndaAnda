@@ -312,3 +312,26 @@ def test_dead_ball_moves_from_where_play_stopped_to_the_restart_spot():
     assert np.linalg.norm(np.diff(xy[dead], axis=0), axis=1).max() * FPS < 40   # no teleport
     assert np.linalg.norm(xy[dead] - (60.0, 69.0), axis=1).max() > 3     # it did move
     assert np.allclose(ball[:2 * FPS], m.ball[:2 * FPS], equal_nan=True)  # live play untouched
+
+
+def test_ball_gaps_that_start_in_a_stoppage_end_at_the_restart():
+    """degrade._ball_gaps with gap_ends_at_restart: no gap that starts inside a dead stretch runs
+    more than restart_lag_s past the restart; live play right after restarts keeps its ball."""
+    from dataclasses import replace
+    from bench.degrade import PROFILES, _ball_gaps
+    from bench.match import FPS, D, H
+    from tests.toys import Toy
+    t = Toy(600).jog(2.0)
+    t.ball_move(0, 600, (30.0, 30.0), (70.0, 40.0))
+    t.labels[:] = H
+    for k in range(10):                                   # a 20 s stoppage every minute
+        t.labels[(60 * k + 30) * FPS:(60 * k + 50) * FPS] = D
+    m = t.match()
+    prof = replace(PROFILES["hackathon"], ball_missing_alive=0.0, ball_missing_dead=0.9,
+                   gap_from_ballout=False)
+    miss = _ball_gaps(m, prof, np.random.default_rng(0))
+    assert miss[m.labels == D].mean() > 0.8
+    lag = int(prof.restart_lag_s * FPS) + 1
+    for k in range(10):
+        after = slice((60 * k + 50) * FPS + lag, (60 * k + 90) * FPS)
+        assert not miss[after].any()

@@ -23,7 +23,7 @@ Clean DFL tracking is made to look like the hackathon ATD, then scored with the 
 scorer, held-out by match.
 
 - **Degrader** (`degrade.py`, calibrated on the real ATD's aggregates): long ball gaps (~41% of
-  frames, ~19% live / ~61% dead), tracker blackouts, anonymous fragmented slots (~11 tracklets /
+  frames: ~7% live / ~80% dead, a stoppage's gap ending at the restart), tracker blackouts, anonymous fragmented slots (~11 tracklets /
   min, ~20.5 players), wrong-team tracklets, smoothed ball path, false ball blips, identity breaks
   in duels, and a dead ball that moves (thrown back, carried to the restart spot) like the real
   one instead of DFL's parked ball. Seeded.
@@ -71,14 +71,16 @@ ATD ──► features ──► 2 LightGBM models ──► geometric mean ─�
 | organisers' baseline (smooth50) | 0.275 | – | 8.29 | 0.326 |
 | M2 single model (until Oct 27) | 0.611 | 0.479 | 4.28 | 0.622 |
 | R + B ensemble, switch 20 (Oct 27; old bench) | 0.724 | 0.514 | 3.45 | 0.622 |
-| **R + B dead-ball-mixed, switch 20 (submission; corrected bench)** | **0.683** | **0.509** | **3.56** | **0.622** |
+| R + B dead-ball-mixed, switch 20 (corrected bench) | 0.683 | 0.509 | 3.56 | 0.622 |
+| **R + B retrained on the recalibrated gaps, switch 20 (submission)** | **0.725** | **0.537** | **3.69** | **0.622** |
 
-The bench was corrected on Oct 28 (moving dead ball), which made it harder: on it the Oct 27
-model scores 0.567.
+The bench was corrected twice on Oct 28 (moving dead ball; ball gaps split live 7% / dead 80%),
+so its numbers are not comparable across those rows; PFF is unchanged throughout.
 
 Main open problem: hand-overs are much harder to see on the real tracking than on the bench
 (10 of the 17 public possessions found). Fixed Oct 28: the ATD's ball "speed" was missing on 92%
-of frames (now derived from positions) and DFL's parked dead ball taught "still ball = dead".
+of frames (now derived from positions), DFL's parked dead ball taught "still ball = dead", and
+the bench hid the ball at 23% of hand-overs where the real tracker sees it at 93-96%.
 
 Tried and dropped (all in `results.md`): semi-Markov decoder, ball-gap features, player-level
 carrier model and path decoder, snapping changes to controls, Smart Tagging, varied degradation,
