@@ -47,14 +47,40 @@ def real_match():
     return m.without_labels()
 
 
-def pseudo_labels(match, probs=None):
-    """(labels (T,) H/A/D/X, keep (T,) bool): pseudo-labels and the confident frames."""
+CONSERVATIVE_P = 0.9         # conservative mode: P(label) at least this
+AWAY_S = 2.0                 # ... and at least this far from any predicted change
+
+
+def pseudo_labels(match, probs=None, mode="control"):
+    """(labels (T,) H/A/D/X, keep (T,) bool): pseudo-labels and the confident frames.
+
+    mode "control": the hackathon-style rule on the submission's scaffold; live frames during or
+    just after a control by the labelled team (new information where the rule disagrees with the
+    model). mode "conservative": the submission's own labels, only where it is confident
+    (P >= CONSERVATIVE_P) and at least AWAY_S from any predicted change (no new changes, the
+    real players' movement only)."""
     from bench import relabel
     from bench.match import graded_mask
     from . import learned
     view = match.without_labels()
     probs = learned.probabilities(view, SCAFFOLD_DIR) if probs is None else probs
     scaffold = learned.decode(view, learned.Params(), probs)    # the submission's decoder too
+    if mode == "conservative":
+        sure = probs[np.arange(len(scaffold)), np.vectorize(lambda c: learned.CLASS_OF.get(c, 0))(scaffold)]
+        edge = np.flatnonzero(np.diff(scaffold.astype(np.int8))) + 1
+        far = np.ones(len(scaffold), bool)
+        w = int(AWAY_S * FPS)
+        for t in edge:
+            far[max(0, t - w):t + w] = False
+        keep = graded_mask(view) & far & (sure >= CONSERVATIVE_P) & np.isin(scaffold, (H, A, D))
+        keep[PUBLIC[0]:PUBLIC[1] + 1] = False
+        live_k, dead_k = keep & np.isin(scaffold, (H, A)), keep & (scaffold == D)
+        di, n_live = np.flatnonzero(dead_k), int(live_k.sum())
+        if len(di) > n_live > 0:                       # balance as in the control mode
+            dead_k[:] = False
+            dead_k[di[np.linspace(0, len(di) - 1, n_live).astype(int)]] = True
+        keep = live_k | dead_k
+        return np.where(keep, scaffold, X).astype(np.int8), keep
     lab = relabel.hackathon_labels(replace(view, labels=scaffold))
     control = relabel._control_team(view, relabel.Rule())
     # frames since the last control by the labelled team
@@ -78,15 +104,15 @@ def pseudo_labels(match, probs=None):
     return np.where(keep, lab, X).astype(np.int8), keep
 
 
-def rows(match, feature_set, seed=0):
+def rows(match, feature_set, seed=0, mode="control"):
     """Training rows [(X, y, names)] from the real match: DRAWS masked copies, each with its
     home / away swap, confident frames every SUBSAMPLE-th."""
     from bench.degrade import Profile, _ball_gaps
     from . import learned
-    lab, keep = pseudo_labels(match)
+    lab, keep = pseudo_labels(match, mode=mode)
     live, dead = np.isin(lab, (H, A)), lab == D
-    print("self-training pseudo-labels: {} live / {} dead confident frames (public window excluded)"
-          .format(int(live.sum()), int(dead.sum())), flush=True)
+    print("self-training ({}): {} live / {} dead confident frames (public window excluded)"
+          .format(mode, int(live.sum()), int(dead.sum())), flush=True)
     base = replace(match.without_labels(), labels=lab)
     already = np.isnan(match.ball[:, 0])
     out = []

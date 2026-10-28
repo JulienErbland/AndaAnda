@@ -143,7 +143,7 @@ def _rows_job(args):
 
 
 def train(feature_set="base", draws=1, spread=0.0, profile="hackathon", with_pff=False, workers=4,
-          with_metrica=False, self_train=0.0, dead_mix=False):
+          with_metrica=False, self_train=0.0, dead_mix=False, self_train_mode="control"):
     """Full model + one held-out model per group (groups_of). Each match's rows are computed once,
     in parallel, and reused by every fit. draws > 1: each match enters `draws` times, each with its
     own degrader seed and, when spread > 0, its own random neighbour of the profile (degrade.vary)."""
@@ -161,14 +161,15 @@ def train(feature_set="base", draws=1, spread=0.0, profile="hackathon", with_pff
     extra = ()
     if self_train > 0:   # real-match rows (possession/selftrain.py) join every fit
         from . import selftrain
-        extra = selftrain.rows(selftrain.real_match(), feature_set)
+        extra = selftrain.rows(selftrain.real_match(), feature_set, mode=self_train_mode)
     os.makedirs(LOMO_DIR, exist_ok=True)
     fit_rows([x for r in rows.values() for x in r], extra, self_train).save_model(FULL_MODEL)
     with open(META, "w") as f:
         json.dump({"trained_on": sorted(rows), "groups": groups, "profile": profile,
                    "feature_set": feature_set, "draws": draws, "spread": spread,
                    "with_pff": with_pff, "with_metrica": with_metrica,
-                   "self_train": self_train, "dead_mix": dead_mix, "params": LGB_PARAMS,
+                   "self_train": self_train, "self_train_mode": self_train_mode,
+                   "dead_mix": dead_mix, "params": LGB_PARAMS,
                    "rounds": ROUNDS}, f, indent=1)
     print("full model ->", os.path.relpath(FULL_MODEL, ROOT), flush=True)
     for g in sorted(set(groups.values())):
@@ -239,20 +240,26 @@ def switch_costs(match, p, touch_list=None):
     return cost
 
 
+def scores(match, p, probs, bonus=None):
+    """(T, 3) decoder scores: weighted log-probabilities (+ bonus), kick-off rule applied."""
+    out = p.weight * np.log(np.clip(probs, 1e-4, 1.0))
+    if bonus is not None:
+        out = out + bonus
+    if p.kickoff_dead:
+        from . import restarts
+        for first, kick in restarts.kickoff_frames(match, probs[:, CLASS_OF[D]]):
+            out[first:kick, [CLASS_OF[H], CLASS_OF[A]]] = -1e3
+    return out
+
+
 def decode(match, p=Params(), probs=None, bonus=None, touch_list=None):
     """bonus: optional (T, 3) scores added before decoding (e.g. tags.bonus, Smart Tagging).
     touch_list: precomputed touches.detect(match), reused when p.switch_touch is set."""
     probs = probabilities(match) if probs is None else probs
-    scores = p.weight * np.log(np.clip(probs, 1e-4, 1.0))
-    if bonus is not None:
-        scores = scores + bonus
-    if p.kickoff_dead:
-        from . import restarts
-        for first, kick in restarts.kickoff_frames(match, probs[:, CLASS_OF[D]]):
-            scores[first:kick, [CLASS_OF[H], CLASS_OF[A]]] = -1e3
+    scores_ = scores(match, p, probs, bonus)
     sw = None if p.switch_touch is None else switch_costs(match, p, touch_list)
-    return hmm.decode_scores(match, scores, hmm.Params(switch=p.switch, stop=p.stop,
-                                                       restart=p.restart), sw)
+    return hmm.decode_scores(match, scores_, hmm.Params(switch=p.switch, stop=p.stop,
+                                                         restart=p.restart), sw)
 
 
 def predict(match):
@@ -272,6 +279,7 @@ if __name__ == "__main__":
                     help="with --draws 2: odd draws keep the dead ball parked (robust to both trackers)")
     ap.add_argument("--self-train", type=float, default=0.0,
                     help="weight of the real match's pseudo-labelled rows (possession/selftrain.py)")
+    ap.add_argument("--self-train-mode", choices=["control", "conservative"], default="control")
     ap.add_argument("--with-metrica", action="store_true",
                     help="also train on Metrica sample games 1-3 (relabelled with MTAH_DFL_LABELS=hackathon)")
     ap.add_argument("--overwrite-submission-model", action="store_true",
@@ -283,4 +291,4 @@ if __name__ == "__main__":
         sys.exit("refusing to overwrite the submission model in models/ with experiment options; "
                  "set MTAH_MODEL_DIR=models_exp/<name> (or pass --overwrite-submission-model)")
     train(a.features, a.draws, a.vary, a.profile, a.with_pff, with_metrica=a.with_metrica,
-          self_train=a.self_train, dead_mix=a.dead_mix)
+          self_train=a.self_train, dead_mix=a.dead_mix, self_train_mode=a.self_train_mode)

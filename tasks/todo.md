@@ -557,3 +557,17 @@ real-match effect is always less certain than the bench's.
       +0.000 / −0.003, PFF −0.006 ± 0.002 (19/64) at switch 20 (`results.md`).
 
 Suggested order: F4 -> C -> D -> E (F0-F3 done).
+
+## State when paused (Oct 28, 01:25)
+
+Submission: R_g + B_g (`models/`), switch 20; bench 0.725, PFF 0.537 (commit 2692053).
+- F4 self-training: R_sc (control) and R_ss (conservative) trained in models_exp/; their
+  evaluation was stopped. Resume: `scripts/round7_selftrain.sh > reports/compare/round7.log 2>&1`
+  (skips the trained models; ~45 min: bench, PFF, real for both). Adopt only if the bench does
+  not drop and PFF gains (vs `reports/compare/ens_RgBg_g.json`, `pff_sweep_R_g_B_g_0.75.json`).
+  Watch: the self-training rows hide the ball on 82% of frames (real 41%).
+- C (MBR decoding): built (`possession/mbr.py`, `scripts/eval_mbr.py`, FFBS test), not yet
+  evaluated. One DFL match: temp 4 picks switch 10 and loses 0.021 -> the temperature matters.
+  Resume: `MTAH_DFL_LABELS=hackathon uv run python scripts/eval_mbr.py bench --temps 0.5 1 2 4 8`
+  (~20 min), then `pff --temp <best>` and `real --temp <best>`.
+- Then D, E (order unchanged).

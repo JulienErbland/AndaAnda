@@ -194,3 +194,20 @@ def test_refinement_puts_the_boundary_on_the_exact_frame():
     m = toy([H] * n, np.full((n, 2), 50.0))
     pred = hsmm.decode_scores(m, scores, hsmm.Params(switch=1.0))
     assert (pred[:203] == H).all() and (pred[203:] == A).all()
+
+
+def test_ffbs_samples_follow_the_posterior():
+    """possession/mbr.sample_paths: on a 2-segment toy (H then A, clear evidence), every sample
+    has the switch near the true change; with no evidence, samples spread out."""
+    from possession import hmm, mbr
+    T = 200
+    sc = np.zeros((T, 3))
+    sc[:100, 0], sc[100:, 1] = 2.0, 2.0
+    sc[:, 2] = -5.0
+    tr = hmm.transitions(hmm.Params(switch=5, stop=40, restart=40))
+    paths = mbr.sample_paths(sc, tr, 50, 1.0, np.random.default_rng(0))
+    change = np.argmax(paths != paths[:, :1], axis=1)
+    assert (paths[:, 0] == 0).all() and (paths[:, -1] == 1).all()
+    assert np.all(np.abs(change - 100) <= 5)
+    flat = mbr.sample_paths(np.zeros((T, 3)), tr / 50, 50, 1.0, np.random.default_rng(0))
+    assert len({tuple(p) for p in flat}) > 40
