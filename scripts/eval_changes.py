@@ -9,6 +9,7 @@ against beta 0 at switch 20 (the submission).
 """
 
 import argparse
+import json
 import os
 import sys
 from multiprocessing import Pool
@@ -36,18 +37,27 @@ def _one(args):
     for b in betas:
         for sw in switches:
             pred = changes.decode(view, learned.Params(switch=sw), pr, b, q)
-            out[(b, sw)] = (score(clean.labels, pred)["spell_f1_mean"], spell_rate(clean, pred))
+            r = score(clean.labels, pred)
+            out[(b, sw)] = (r["spell_f1_mean"], spell_rate(clean, pred), r["macro_f1"])
+    out["seed"] = seed
     return out
 
 
-def run(groups, seeds, betas, switches):
+def run(groups, seeds, betas, switches, out=None):
     jobs = [(p, s, betas, switches) for p in match_paths(groups) for s in seeds]
     with Pool(4) as pool:
         res = list(pool.imap(_one, jobs))
+    if out:   # one compare_models-style JSON per beta (scripts/curve.py reads them)
+        for b in betas:
+            rows = [[r["name"], r["seed"], sw, r[(b, sw)][0], r[(b, sw)][2], r[(b, sw)][1]]
+                    for r in res for sw in switches]
+            with open("{}_b{:g}.json".format(out, b), "w") as f:
+                json.dump({"dfl": rows, "hackathon": {}}, f)
     names = sorted({r["name"] for r in res})
     per = lambda k: np.array([np.mean([r[k][0] for r in res if r["name"] == n]) for n in names])  # noqa: E731
-    base = per((0.0, 20.0))
-    print("{} matches x {} seeds; reference beta 0, switch 20: {:.4f}".format(len(names), len(seeds), base.mean()))
+    ref = (0.0, switches[0])
+    base = per(ref)
+    print("{} matches x {} seeds; reference beta 0, switch {:g}: {:.4f}".format(len(names), len(seeds), ref[1], base.mean()))
     for b in betas:
         for sw in switches:
             d = per((b, sw)) - base
@@ -69,9 +79,12 @@ if __name__ == "__main__":
     ap.add_argument("where", choices=["bench", "pff", "real"])
     ap.add_argument("--beta", type=float, default=1.0)
     ap.add_argument("--switch", type=float, default=20.0)
+    ap.add_argument("--betas", type=float, nargs="+", default=list(BETAS))
+    ap.add_argument("--switches", type=float, nargs="+", default=list(SWITCHES), help="first = reference")
+    ap.add_argument("--out", help="bench: write <out>_b<beta>.json per beta")
     a = ap.parse_args()
     if a.where == "bench":
-        run(["dfl"], [0, 1, 2], BETAS, SWITCHES)
+        run(["dfl"], [0, 1, 2], a.betas, a.switches, a.out)
     elif a.where == "pff":
         run(["pff"], [0], (0.0, a.beta), (20.0, a.switch))
     else:

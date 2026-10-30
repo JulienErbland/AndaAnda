@@ -897,6 +897,35 @@ Both happen about 1-3 times per match, at rates close to the bench. The real bal
 DFL ball does too (3.9%): the degrader's position noise blurs it, and runs are no longer. Not worth
 a degrader artefact or a consistency rule.
 
+### Round 8: reception convention and switch 20-60 (Oct 30)
+
+Scored on hackathon-rx labels (the hackathon-style rule + "dead until the first reception",
+`bench reception --source hackathon`), OLD bench (before F5). Match = unit (3 seeds averaged),
+`scripts/curve.py`. Real rate: range 3.2-7.6 (Bench caveats). PFF: reported only, PFF's own
+labels (live at the kick), 64 matches, bootstrap 95% vs the submission at switch 20 (0.5370).
+
+| | switch 20 | 30 | 40 | 60 |
+|---|---|---|---|---|
+| submission (R_g + B_g), bench | 0.6730 | 0.6796 (+0.007, 7/7) | 0.6840 (+0.011, 7/7) | 0.6782 (+0.005, 4/7) |
+| + decoder rule (2 m) | 0.6858 (+0.013, 7/7) | 0.6925 (+0.020, 7/7) | 0.6964 (+0.023, 7/7) | 0.6904 |
+| **R_rx + B_rx (trained on reception labels)** | 0.6959 (+0.023, 7/7) | **0.6997 (+0.027, 7/7)** | 0.6970 (+0.024, 7/7) | 0.6933 (+0.020, 7/7) |
+| R_rx + B_rx + decoder rule | 0.6829 | 0.6880 (−0.012 vs without, 0/7) | 0.6858 | 0.6826 |
+| real rate: submission / R_rx + B_rx | 3.69 / 3.60 | 3.49 / 3.45 | 3.32 / 3.29 | 3.23 / 3.23 |
+| PFF: submission | 0.5370 | 0.5381 [−0.001, +0.003] | 0.5362 [−0.004, +0.002] | 0.5285 [−0.012, −0.005] |
+| PFF: R_rx + B_rx | 0.5220 [−0.018, −0.012] | 0.5209 | 0.5176 | 0.5093 |
+
+Per match (bench, R_rx + B_rx, switch 20 / 30 / 40): J03WMX .673/.678/.676, J03WN1 .615/.612/.612,
+J03WOH .713/.714/.713, J03WOY .685/.690/.687, J03WPY .738/.737/.733, J03WQQ .747/.756/.750,
+J03WR9 .700/.711/.708. Flat 20-40 within 0.004 on the mean; 60 is worse on every curve and on PFF.
+
+Reading: on reception labels, training on them beats the decoder rule (opposite of PR #1's result
+with the older model); stacking both double-counts. The switch curve is flat over 20-40 on both
+benches; its middle is 30. Best-of-4 on 7 matches is optimistic by about the neighbours' spread
+(~0.003). On PFF the reception models lose 0.015-0.028: PFF's labels go live at the kick, so this
+measures the convention, not the model. Public check (reported only): 10/17 possessions at switch
+20, 8/17 from 30 on (one possession pair merged; not an alignment bug: same at 30, 40, 60 and for
+every model). Which convention the hackathon GT follows is decided in round 9 (minimax rule).
+
 ## PFF decisions log
 
 PFF Terms of Use (pff.com/terms, updated Oct 12, 2026), checked Oct 30: §1.2 "PFF grants you the
