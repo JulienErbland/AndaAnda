@@ -211,3 +211,18 @@ def test_ffbs_samples_follow_the_posterior():
     assert np.all(np.abs(change - 100) <= 5)
     flat = mbr.sample_paths(np.zeros((T, 3)), tr / 50, 50, 1.0, np.random.default_rng(0))
     assert len({tuple(p) for p in flat}) > 40
+
+
+def test_change_target_and_costs():
+    """possession/changes: the target marks ±WINDOW_S around H <-> A changes only; costs fall
+    where a change is likely, rise where it is not, stay in bounds, and beta 0 is constant."""
+    from bench.match import FPS
+    from possession import changes
+    lab = np.array([H] * 100 + [A] * 100 + [D] * 50 + [H] * 50)
+    y = changes.target(lab)
+    w = int(round(changes.WINDOW_S * FPS))
+    assert y[100 - w:100 + w + 1].all() and y.sum() == 2 * w + 1      # D -> H is not a change
+    q = np.array([0.001, 0.05, 0.9])
+    c = changes.costs(q, 0.05, 20.0, 2.0)[:, 0]
+    assert c[2] < c[1] == 20.0 < c[0] <= 60.0 and c.min() >= changes.MIN_COST
+    assert np.all(changes.costs(q, 0.05, 20.0, 0.0) == 20.0)

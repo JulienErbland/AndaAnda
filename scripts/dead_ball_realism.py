@@ -1,7 +1,11 @@
 """Dead-ball behaviour, real vs bench (aggregates only): on dead frames with a visible ball, the
 ball's speed (from positions), share standing still, distance to the nearest player, share
-outside the lines. Real: the public window's dead frames (the only labelled ones). Calibrates
-bench/degrade.py's dead-ball knobs.
+outside the lines. Calibrates bench/degrade.py's dead-ball knobs.
+
+Real dead frames come from ALGORITHMIC calls over the whole match, never from the public ground
+truth (RULES.md: the public 5 minutes are not a tuning set): the submission model's confident
+dead frames, and a model-free one (players at walking pace for >= 5 s). They agree; the public
+window's 4 stoppages did not (Oct 30).
 
     uv run python scripts/dead_ball_realism.py
 """
@@ -29,15 +33,35 @@ def stats(m, mask):
     return np.r_[np.percentile(sp[v], [10, 50, 90]), np.mean(sp[v] < 0.3), np.median(dd[v]), np.mean(out[v])]
 
 
-def main():
-    fmt = "{:<14} speed p10/50/90 {:5.2f} {:5.2f} {:5.2f} | still {:4.0%} | nearest player {:4.1f} m | outside {:4.0%}"
-    hm = Match.load(match_paths(["hackathon"])[0])
-    print(fmt.format("real (public)", *stats(hm, (hm.labels != X) & (hm.labels == D))))
+def real_targets():
+    from bench.match import FPS
+    from possession import learned
+    hm = Match.load(match_paths(["hackathon"])[0]).without_labels()
+    g = graded_mask(hm)
+    pr = learned.probabilities(hm)
+    sp = hm.players[..., 2].astype(float)
+    ms = np.nansum(sp, 1) / np.maximum((~np.isnan(sp)).sum(1), 1)
+    k = 5 * FPS
+    walk = np.convolve(ms < 1.0, np.ones(k), "same") >= k
+    return {"model-confident dead": stats(hm, g & (pr[:, 2] > 0.9)),
+            "walking pace >= 5 s": stats(hm, g & walk)}
+
+
+def bench(profile="hackathon"):
     rows = []
     for p in match_paths(["dfl"]):
         c = Match.load(p)
-        rows.append(stats(load_degraded(p, "hackathon", 0), graded_mask(c) & (c.labels == D)))
-    print(fmt.format("bench (mean)", *np.mean(rows, axis=0)))
+        rows.append(stats(load_degraded(p, profile, 0), graded_mask(c) & (c.labels == D)))
+    return np.mean(rows, axis=0)
+
+
+FMT = "{:<22} speed p10/50/90 {:5.2f} {:5.2f} {:5.2f} | still {:4.0%} | nearest player {:4.1f} m | outside {:4.0%}"
+
+
+def main():
+    for name, v in real_targets().items():
+        print(FMT.format("real: " + name, *v))
+    print(FMT.format("bench (mean)", *bench()))
 
 
 if __name__ == "__main__":

@@ -773,3 +773,34 @@ regressions: dead ball visible 63% vs 80% (79 clips), ball-gap hold 27% vs 35% (
 The smaller control-evidence gap (new-team control within 1 s: 17-30% real vs 36% bench) is
 second-order: the ball moves with the nearest player on 55-59% of close frames on the real
 tracking vs 65% on the bench.
+
+### F4: self-training on the real match (Oct 30): rejected
+
+`learned train --self-train 2 --self-train-mode control|conservative` (R member; B = B_g): the
+real match's frames with algorithmic pseudo-labels (no human label; public window excluded), the
+ball hidden in gap shapes, added to every fit with weight 2. control: the hackathon-style rule
+on the submission's scaffold (27k live frames, 4.0% disagree with the submission);
+conservative: the submission's confident labels >= 2 s from any change (43k live frames).
+
+| vs the submission, switch 20 | bench (7 matches) | PFF (64) | real rate |
+|---|---|---|---|
+| control | +0.001 ± 0.001 | −0.004 ± 0.002 (29/64) | 3.66 |
+| conservative | +0.001 ± 0.002 | −0.005 ± 0.002 (22/64) | 3.61 |
+
+Neutral on the bench, slightly worse on PFF at every switch. After F0 / F3 the bench and the real
+tracking agree closely, so the real match's own frames add no new information and the model
+leans slightly towards this fixture. Code kept (`possession/selftrain.py`), off by default.
+
+### C: minimum Bayes risk decoding (Oct 30): rejected
+
+`scripts/eval_mbr.py bench`, 7 matches x 3 seeds, vs Viterbi at switch 20 (0.7247): temp 0.5
++0.0002 ± 0.0002 (1/7), 1 −0.0004, 2 −0.0068, 4 −0.0226, 8 −0.0442. The tempered posterior
+spreads mass over more changes, so MBR picks lower switches; at low temperature it is Viterbi.
+
+### D: learned switch costs (Oct 30): grid edge, re-run higher
+
+`possession/changes.py` (LightGBM "change within ±0.5 s", leave-one-match-out; base rate 0.022),
+costs scaled by beta. Bench vs beta 0 / switch 20 (0.7246): switch 14 −0.012 for every beta;
+switch 20 −0.001 to −0.005; switch 30 +0.0065 (beta 0, 7/7) to +0.0102 (beta 4, 7/7). Two
+findings: the submission's switch is now too low on the bench (F3's retraining moved it), and D
+adds +0.004 at switch 30. Both at the edge of the grid: re-run at 30-80 after the F8 retraining.

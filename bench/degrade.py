@@ -111,6 +111,7 @@ class Profile:
     dead_offset_m: tuple = (1.0, 4.5)  # ball's distance to the player holding it
     dead_carry_s: tuple = (1.0, 4.0)   # carried by the taker to the restart spot
     dead_place_s: float = 0.4
+    dead_wait_s: float = 0.0           # lies where play stopped for up to this before the first hop
     # Ball visibility split (Oct 28): the real ball is missing on ~7% of live frames (public
     # window 6.5%; frames the model calls live 7%) and is seen at 93-96% of hand-overs; Oct 20's
     # 19% live / 61% dead came from a speed-bin proxy and hid the ball at 23% of the bench's
@@ -208,7 +209,9 @@ def _dead_ball_motion(ball, match, p, rng):
         end_hops = max(a, b - place - carry)
         pos = ball[a, :2].astype(np.float64) * m if not np.isnan(ball[a, 0]) else spot
         path = np.full((b - a, 2), np.nan)
-        t = a
+        # first it lies where play stopped (out of play, waiting to be fetched)
+        t = min(end_hops, a + int(round(rng.uniform(0, p.dead_wait_s) * FPS)))
+        path[:t - a] = pos
         while t < end_hops:
             last = t + 1 >= end_hops - FPS            # no room for another hop: go to the taker
             if last:

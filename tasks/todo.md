@@ -519,7 +519,7 @@ real-match effect is always less certain than the bench's.
       on frames within ±2 s of a possession change (bench: true changes; real: the public
       window's 12 changes + the model's predicted changes) to see which touch / control features
       fail to transfer there. Effort 1-2 h. Then fix the degrader or drop the features.
-- [ ] **F4 (= review B). Self-training on the real match.** Built (`possession/selftrain.py`,
+- [x] **F4 (= review B). Self-training on the real match.** REJECTED Oct 30: bench +0.001 (both modes), PFF −0.004 / −0.005 (`results.md`). Built (`possession/selftrain.py`,
       `learned train --self-train W`: control-based pseudo-labels, ball hidden in gap shapes,
       public window excluded; disagrees with the submission on 3.1% of confident live frames).
       Blocked on F0 (its scaffold reads the wrong ball speed). Then run two variants: as built,
@@ -529,7 +529,8 @@ real-match effect is always less certain than the bench's.
 
 ## Different approaches
 
-- [ ] **C. Minimum Bayes risk decoding for spellF1.** Forward-filtering backward-sampling of a
+- [x] **C. Minimum Bayes risk decoding for spellF1.** REJECTED Oct 30: best temp 0.5 +0.0002
+      (1/7); higher temps pick lower switches and lose up to −0.044 (`results.md`). Forward-filtering backward-sampling of a
       few hundred paths per half from the HMM posterior (with a temperature on the scores: the
       per-frame terms are correlated, so the raw posterior is over-confident), then pick among
       candidates (Viterbi at several switches + samples) the one with the best mean spellF1
@@ -537,7 +538,9 @@ real-match effect is always less certain than the bench's.
       samples, ~1-2 min per match. Bonus: picks the switch per match, which removes F1's noisy
       choice. Estimate +0.00-0.02 bench (the gain is bounded by how often a different path wins
       on expected spellF1); effort ~1 day.
-- [ ] **D. Learned, time-varying switch costs.** A second LightGBM predicts "change within
+- [ ] **D. Learned, time-varying switch costs.** Oct 30 bench grid (beta 0-4 x switch 14/20/30):
+      at switch 30 beta 4 +0.004 over beta 0, beta rising with the switch; and switch 30 alone
+      beats 20 by +0.0065 (7/7): grid edge. Re-run at switch 30-80 after F8's retraining. A second LightGBM predicts "change within
       ±0.5 s" (bench labels); its log-odds set the switch cost per frame (IO-HMM-like), with one
       or two scale parameters tuned on the bench. Differs from the rejected touch discounts
       (rule-based) but overlaps them: the misses are mostly short possessions the evidence
@@ -556,7 +559,28 @@ real-match effect is always less certain than the bench's.
 - [x] **Review fix 3 (earlier list): Metrica sample games as training data.** Rejected: DFL bench
       +0.000 / −0.003, PFF −0.006 ± 0.002 (19/64) at switch 20 (`results.md`).
 
-Suggested order: F4 -> C -> D -> E (F0-F3 done).
+## Rule changes (organisers, Oct 30): no tuning on the public 5 minutes
+
+- [ ] **F5. Bench calibration from algorithmic calls only.** F0's dead-ball knobs and F3's split
+      were fitted on the public window's labels. `scripts/dead_ball_realism.py` now takes real
+      targets from the model's confident dead frames and a model-free walking-pace mask (they
+      agree; `Profile.dead_wait_s` added). Grid so far: still 9-11% vs 17-20% real. Waits on F8
+      (the targets depend on which frames count as dead).
+- [x] **F6. Relabel rule off the public window.** CONTROL_S 0.4 / NEAR_M 1.5 were set in
+      `touches.py` on Oct 21 (a0c9f1a), before the relabel calibration (f5ac33c, Oct 22); B_lo /
+      B_hi showed the result barely moves. Left: `date_from_touch` came from the public window's
+      12 changes -> v1 vs v2 on PFF (independent labels) in F8's round; drop PUBLIC_RATE/Q from
+      `calibrate()`.
+- [ ] **F7. Question for the organisers** (issue on their repo): is matching a bench label
+      definition to the public window's aggregate rate "tuning"? Draft in `docs/`.
+- [ ] **F8. Dead-ball convention (PR #1, max/dev).** Hackathon GT (Julien's reading): a restart
+      stays D until the first reception; DFL and PFF go live at the kick; PFF is dead only for
+      ball OUT (fouls / offsides stay live). Merge the PR into this branch; apply the reception
+      rule on top of the hackathon-style labels (`hackathon-rx`), keep `ball_dead` for the
+      degrader (gaps AND F0's dead-ball motion); retrain R/B; compare decoder rule vs trained
+      labels; check PFF's convention before trusting PFF deltas on restarts.
+
+Suggested order: F8 -> F5 -> F6 (v1/v2) -> D at higher switches -> E.
 
 ## State when paused (Oct 28, 01:25)
 
