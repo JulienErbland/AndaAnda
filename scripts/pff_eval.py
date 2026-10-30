@@ -26,7 +26,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from bench import REPORTS_DIR, ROOT  # noqa: E402
 
 BASES = {"sub_old": "models_exp/sub_old", "A_r": "models_exp/A_r", "R_r": "models_exp/R_r",
-         "B_r": "models_exp/B_r", "R_m": "models_exp/R_m", "B_m": "models_exp/B_m", "R_d": "models_exp/R_d", "B_d": "models_exp/B_d", "R_v": "models_exp/R_v", "B_v": "models_exp/B_v", "R_g": "models_exp/R_g", "B_g": "models_exp/B_g", "R_sc": "models_exp/R_sc", "R_ss": "models_exp/R_ss"}
+         "B_r": "models_exp/B_r", "R_m": "models_exp/R_m", "B_m": "models_exp/B_m", "R_d": "models_exp/R_d", "B_d": "models_exp/B_d", "R_v": "models_exp/R_v", "B_v": "models_exp/B_v", "R_g": "models_exp/R_g", "B_g": "models_exp/B_g", "R_sc": "models_exp/R_sc", "R_ss": "models_exp/R_ss", "R_rx": "models_exp/R_rx", "B_rx": "models_exp/B_rx", "R_f": "models_exp/R_f", "B_f": "models_exp/B_f", "B1_f": "models_exp/B1_f", "R_rxf": "models_exp/R_rxf", "B_rxf": "models_exp/B_rxf"}
 # name: ({base: weight}, switch whose real-match rate is closest to the public 4.25)
 CANDIDATES = {
     "sub_old": ({"sub_old": 1}, 10),

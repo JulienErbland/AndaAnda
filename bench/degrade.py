@@ -45,8 +45,8 @@ from .match import A, D, H, Match, graded_mask
 @dataclass(frozen=True)
 class Profile:
     # Ball dropout. Targets are fractions of graded frames of that kind with no ball.
-    ball_missing_alive: float = 0.07   # Oct 28 (see gap_ends_at_restart); was 0.19 / 0.61
-    ball_missing_dead: float = 0.80
+    ball_missing_alive: float = 0.056  # F5, Oct 30 (see gap_ends_at_restart); was 0.07 / 0.80
+    ball_missing_dead: float = 0.77
     ball_gap_median_s: float = 9.5     # lognormal part of the gap length
     ball_gap_sigma: float = 0.75
     ball_flicker_share: float = 0.11   # share of gaps that are short flickers
@@ -99,23 +99,27 @@ class Profile:
     # break rate x (1 + gain) near an opponent, rescaled to keep the mean rate (tracklet_s).
     break_duel_gain: float = 80.0     # track ends near an opponent: real 33%, bench 12% -> 33%
     duel_m: float = 2.0
-    # Dead-ball motion (Oct 27). DFL parks a dead ball where it left the pitch; the real one is
-    # thrown back, carried to the spot and placed. Public window, dead frames with a ball: speed
-    # p10/50/90 1.0/2.7/9.3 m/s, still 1%, outside the lines 11% (DFL: 0.2/0.5/0.9, 22%, 52-73%).
-    # On: the ball hops between nearby players, then the restart taker carries it to the spot.
-    # Fitted Oct 27 (scripts/dead_ball_realism.py): bench now 0.7/2.9/8.4 m/s, still 2%, nearest
-    # player 2.3 m, outside 7% (the real target is 4 stoppages: not fitted any closer).
+    # Dead-ball motion. DFL parks a dead ball where it left the pitch; the real one lies where play
+    # stopped, is thrown back, carried to the spot and placed. On: it waits up to dead_wait_s, hops
+    # between nearby players, then the restart taker carries it to the spot.
+    # F5 (Oct 30, scripts/dead_ball_realism.py; no public-window label used): targets are the real
+    # match's dead frames as DECODED by the submission, public window excluded (speed p50/p90
+    # 2.05/9.8 m/s, still 15%, nearest player 3.2 m, outside 21%); on the bench the decoded mask
+    # gives the same stats as the true one. Grid over wait x hop, objective mean |log ratio|:
+    # 0.752 (old knobs) -> 0.239 (bench 1.9/9.7 m/s, still 7%, 2.4 m, outside 22%). "Still" stays
+    # low: the degrader's position noise moves a resting ball.
     dead_ball_moves: bool = True
-    dead_hop_ms: float = 7.0           # median speed of a throw / kick back between players
+    dead_hop_ms: float = 13.0          # median speed of a throw / kick back between players
     dead_hold_s: tuple = (0.5, 2.0)    # time near a player between hops
     dead_offset_m: tuple = (1.0, 4.5)  # ball's distance to the player holding it
     dead_carry_s: tuple = (1.0, 4.0)   # carried by the taker to the restart spot
     dead_place_s: float = 0.4
-    dead_wait_s: float = 0.0           # lies where play stopped for up to this before the first hop
-    # Ball visibility split (Oct 28): the real ball is missing on ~7% of live frames (public
-    # window 6.5%; frames the model calls live 7%) and is seen at 93-96% of hand-overs; Oct 20's
-    # 19% live / 61% dead came from a speed-bin proxy and hid the ball at 23% of the bench's
-    # hand-overs. Gaps that start in a stoppage end at the restart (+ up to restart_lag_s).
+    dead_wait_s: float = 8.0           # lies where play stopped for up to this before the first hop
+    # Ball visibility split. F5 (Oct 30, `dead_ball_realism.py --missing`): the submission's decoded
+    # labels over the real match minus the public window give missing on dead 78.6% / live 4.4%;
+    # the same decoded calls on the bench are off by +1.8 / -1.2 points against the truth, so the
+    # bias-corrected targets are 77% / 5.6% (overall check 41.8% vs 42.1% measured). Gaps that
+    # start in a stoppage end at the restart (+ up to restart_lag_s).
     gap_ends_at_restart: bool = True
     restart_lag_s: float = 1.0
 

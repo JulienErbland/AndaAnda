@@ -896,3 +896,49 @@ Both happen about 1-3 times per match, at rates close to the bench. The real bal
 0.3 m of a player more often than the degraded one (5.7% vs 3.0% of seen frames), but the clean
 DFL ball does too (3.9%): the degrader's position noise blurs it, and runs are no longer. Not worth
 a degrader artefact or a consistency rule.
+
+## PFF decisions log
+
+PFF Terms of Use (pff.com/terms, updated Oct 12, 2026), checked Oct 30: §1.2 "PFF grants you the
+right to access and use … the PFF Data solely for your own personal, non-commercial use"; §1.5(i)
+you will not "use … any PFF Data … for machine learning or training of artificial intelligence
+models or tools"; §1.6 exempts "traditional machine learning, statistical, or predictive models …
+that you develop and run locally … solely for Personal Use". The World Cup 2022 release
+(blog.fc.pff.com/blog/enhanced-2022-world-cup-dataset) links no other licence. These terms do not
+clearly allow model selection, so **from Oct 30 PFF decides nothing: every choice is made on DFL
+and PFF is reported only.** Past choices PFF influenced (all before Oct 30):
+
+| date | choice | PFF's role | bench alone would have said |
+|---|---|---|---|
+| Oct 27 | switch 20 (vs 30) | "PFF's peak (flat 20-30)" | 30-40 (0.734 vs 0.724) |
+| Oct 28 | F0 dead-ball mix vs pure | decided: bench +0.000, PFF +0.014 (58/64) | tie |
+| Oct 28 | F0 switch 20 kept | "20 vs 30 within noise on both benches" | tie |
+| Oct 27 | Metrica as training data rejected | confirmed: bench +0.000 (5/7), PFF −0.006 | reject (no gain) |
+| Oct 30 | F4 self-training rejected | confirmed: bench +0.001, PFF −0.004 / −0.005 | reject (< +0.005) |
+| Oct 28 | F3 retraining adopted | confirmed: bench +0.015 (6/7), PFF +0.028 | adopt |
+
+The first three are re-decided on DFL in iteration 0 (switch from round 8 / 9; the dead-ball mix
+stays in every candidate since the bench saw no difference and removing it is a new change).
+
+## Bench caveats
+
+- **Calibrated on the model's own calls (F5, Oct 30).** The degrader's dead-ball motion and the
+  dead / live missing-ball split are fitted to the real match's frames as DECODED by the
+  submission, public window excluded. On the bench, that mask's bias is small (missing +1.8 / −1.2
+  points, motion stats within 0.1 m/s), but it is measured where the model works well: the bench
+  may under-penalise the model's own blind spots (dead balls it calls live, and vice versa).
+- **"Still" ball under-reproduced**: 7% of dead frames with a ball vs 15% real; the degrader's
+  position noise moves a resting ball.
+- **Label definition**: the bench scores a hackathon-style rule (control >= 0.4 s within 1.5 m,
+  dated from the first touch) on DFL; the reception convention (dead until the first reception)
+  is a second yardstick. Neither can be checked against the hackathon GT without the public window.
+- **7 matches**: the unit is the match; a best-of-N switch on 7 matches is optimistic by roughly
+  the spread of its neighbours.
+- **Range check** for the real rate: 3.2-7.6 changes per live minute, the min-max over the 7 DFL
+  matches (hackathon-style labels, 3.76-5.18) and the 64 PFF matches (PFF's labels, 3.22-7.59),
+  `scripts/label_rates.py`; replaces the public window's 2.5-6.8 from Oct 30. Set after the
+  submission's rates (3.69 / 3.49 at switch 20 / 30) were known; both are inside either range.
+- **PFF with the hackathon-style rule is not usable**: 2.64 changes per live minute (DFL 4.38),
+  because the rule needs the ball and PFF's raw ball is missing on ~35% of live frames.
+- **PFF's own labels**: dead only from an OUT event to the restart (fouls / offsides stay live),
+  live at the kick; so the reception convention loses on PFF by construction.

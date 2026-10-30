@@ -612,3 +612,46 @@ with both. No published work applies JEPA to football tracking yet.
       comparison vs the submission at the same real-match change rate
 - Constraints: CPU only on this machine; weights derived from the real match can't be committed,
   so pretraining would have to run inside the deterministic submit command (adds torch)
+
+---
+
+# Clean-up and iterations plan (Oct 30, Julien's brief)
+
+Starting point: R_g + B_g, switch 20 (2692053): bench 0.725, PFF 0.537, real rate 3.69.
+
+PFF status (hard rule 4), checked Oct 30: pff.com Terms of Use (updated Oct 12, 2026) §1.2
+"solely for your own personal, non-commercial use"; §1.5(i) not "for machine learning or training
+of artificial intelligence models or tools"; §1.6 carve-out only for local traditional ML "solely
+for Personal Use". The WC 2022 release (blog.fc.pff.com) links no dataset licence beyond these
+Terms. They do NOT clearly allow model selection -> every decision is made on DFL; PFF is
+reported only (asked Julien).
+
+## Iteration 0: clean-up
+- [ ] Round 8 (reception, switch 20-60): bench curve mean + per match, PFF per switch, real rate;
+      middle of a flat region; note best-of-N optimism
+- [ ] F5 (L2): dead-ball motion knobs + dead missing rate from the model's own calls, whole match
+- [ ] F6 (L1): label versions written down before scoring; B on each; decided on DFL (not PFF)
+- [ ] change rate per live minute on every relabelled DFL / PFF match vs 2.5-6.8
+- [ ] combined retrain -> must land within ±0.01 of 0.725 / 0.537, else stop and report
+- [ ] PFF decisions log + Bench caveats sections in results.md
+### Decision rules for L1 and the convention, written Oct 30 22:35 BEFORE any scoring
+Neither PFF (terms) nor the public window (hard rule 2) may choose a label definition, and each
+DFL label version is its own yardstick (scoring B_v1 on v1 labels is circular). So every
+candidate is scored on every competing yardstick; regret(c, y) = best score on y - score of c on
+y; pick the candidate with the smallest MAX regret (match = unit, seeds averaged, at the switch
+picked for that candidate on its own yardstick). If the two max regrets are within 0.005: F6 keeps
+v2 (status quo); the convention question goes to Julien (no default).
+Candidates, all on the F5 bench (wait 8 s, hop 13 m/s, missing dead 0.77 / live 0.056):
+- K0: R + B, B on v2 labels (first-touch dating), kick convention   (the clean baseline)
+- K1: R + B1, B on v1 labels (dated at the control start), kick convention
+- K2: R_rx + B_rx, reception convention (R on dfl_rx, B on hackathon-rx)
+- K0h: K0 with weights 50/50 (L3: the 75/25 weight was kept on Oct 27 partly because 50/50
+  "loses public points" at a public-rate-matched switch). Decided on Y_v2 only (no label change):
+  50/50 replaces 75/25 only with >= +0.005 and better on >= 6/7 matches; else 75/25 stays.
+Yardsticks: Y_v2 = dfl_hk, Y_v1 = dfl_hk_v1 (regenerated: `relabel --tag v1 --date-at-control`),
+Y_rx = dfl_hk_rx. F6: K0 vs K1 on Y_v2, Y_v1. Convention: K0 vs K2 on Y_v2, Y_rx.
+
+## Iterations 1+
+- [ ] 1: research list; D on the clean baseline at the round-8 switch; audit; grade (subagent)
+- [ ] 2: a different base; grade
+- [ ] stop at first GOOD grade from iteration 2 on, or after 5; summary

@@ -126,6 +126,9 @@ def cmd_relabel(args):
     if args.control_s is not None or args.near_m is not None:
         rule = relabel.Rule(control_s=args.control_s if args.control_s is not None else rule.control_s,
                             near_m=args.near_m if args.near_m is not None else rule.near_m)
+    if args.date_at_control:
+        from dataclasses import replace
+        rule = replace(rule, date_from_touch=False)
     relabel.write(relabel.dfl_paths(), rule, args.tag)
     if not args.tag:
         relabel.write(relabel.metrica_paths(), rule, out_d=relabel.METRICA_OUT_DIR)
@@ -348,6 +351,8 @@ def main():
     p.add_argument("--control-s", type=float, help="rule: minimum control duration (s)")
     p.add_argument("--near-m", type=float, help="rule: control distance (m)")
     p.add_argument("--tag", help="write to external/dfl_hk_<tag> (robustness variants)")
+    p.add_argument("--date-at-control", action="store_true",
+                   help="v1: date each change at the control start, not the first touch")
     p.set_defaults(func=cmd_relabel)
 
     p = sub.add_parser("reception")
