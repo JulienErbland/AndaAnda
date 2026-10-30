@@ -926,6 +926,58 @@ measures the convention, not the model. Public check (reported only): 10/17 poss
 20, 8/17 from 30 on (one possession pair merged; not an alignment bug: same at 30, 40, 60 and for
 every model). Which convention the hackathon GT follows is decided in round 9 (minimax rule).
 
+### Round 9: iteration 0 on the F5 bench (Oct 31)
+
+All models retrained on the F5 bench (`scripts/round9_clean.sh`); decision rules in
+`tasks/todo.md` ("Decision rules for L1 and the convention"), written Oct 30 22:35 before scoring.
+Numbers come from the DFL bench only (match = unit, 3 seeds averaged, `scripts/curve.py`); PFF,
+the real rate and the public window are reported only.
+
+| bench spellF1 | yardstick | switch 20 | 30 | 40 | 60 |
+|---|---|---|---|---|---|
+| submission (old models) | Y_v2 | 0.7409 | 0.7501 | 0.7513 | 0.7432 |
+| K0 = R_f + B_f (v2), 75/25 | Y_v2 | 0.7439 | **0.7508** | 0.7500 | 0.7409 |
+| K0 | Y_v1 | 0.7190 | 0.7278 | 0.7281 | 0.7211 |
+| K0 | Y_rx | 0.6966 | 0.7036 | 0.7038 | 0.6952 |
+| K1 = R_f + B1_f (v1), 75/25 | Y_v2 | 0.7435 | 0.7478 | 0.7500 | 0.7394 |
+| K1 | Y_v1 | 0.7392 | 0.7439 | **0.7451** | 0.7349 |
+| K2 = R_rxf + B_rxf (reception) | Y_v2 | 0.7049 | 0.7112 | 0.7088 | 0.7039 |
+| K2 | Y_rx | 0.7108 | **0.7159** | 0.7131 | 0.7070 |
+| K0h = K0 at 50/50 | Y_v2 | 0.7668 | **0.7698** | 0.7679 | 0.7578 |
+| real rate K0 / K1 / K2 | | 3.74 / 3.74 / 4.00 | 3.64 / 3.59 / 3.79 | 3.59 / 3.48 / 3.61 | 3.39 / 3.31 / 3.49 |
+| PFF K0 / K1 / K2 (75/25) | | 0.5384 / 0.5349 / 0.5225 | 0.5386 / 0.5355 / 0.5221 | 0.5360 / 0.5317 / 0.5178 | 0.5269 / 0.5239 / 0.5088 |
+
+Decisions (switch = each candidate's best on its own yardstick; every curve is flat over 30-40):
+- **F6 (L1): K1 wins.** Max regret K0 0.0172 (on Y_v1, K1 better 7/7), K1 0.0008 (on Y_v2,
+  2/7, within noise). Gap 0.016 > 0.005, so B is trained on v1 labels (dated at the control start,
+  no first-touch dating learned from the public window). Same verdict with both at switch 30.
+- **Convention: kick (K0) wins.** Max regret K0 0.0124 (on Y_rx, K2 better 6/7), K2 0.0395 (on
+  Y_v2, K0 better 7/7). Not a tie, so no question for Julien; the F7 draft's Q2 stays open.
+- **L3: 50/50 replaces 75/25.** K0h vs K0 at switch 30: +0.0190, 7/7 (rule: >= +0.005, >= 6/7).
+- The F5 bench itself moved the submission from 0.725 to 0.741 (switch 20, same models): the
+  degrader change, not a model change. Retraining on it changes nothing (K0 vs submission at 30:
+  −0.0007, 5/7).
+- Switch: 30 (middle of the flat 30-40 on K0, K0h, K1). Best-of-4 optimism ~0.002 (neighbours).
+
+**Round 9b: both adopted changes together (K1h = R_f + B1_f, 50/50), `scripts/round9b.sh`.**
+
+| switch 30 | Y_v2 | Y_v1 | real rate | PFF (vs submission 0.5370, bootstrap 95%) | public (reported) |
+|---|---|---|---|---|---|
+| K0 (75/25, v2) | 0.7508 | 0.7278 | 3.64 | 0.5386 (+0.002 [−0.002, +0.006]) | 8/17 |
+| K1 (75/25, v1) | 0.7478 | 0.7439 | 3.59 | 0.5355 (−0.002 [−0.006, +0.003]) | 8/17 |
+| K0h (50/50, v2) | 0.7698 | 0.7450 | 3.50 | 0.5307 (−0.006 [−0.011, −0.002]) | 7/17 |
+| **K1h (50/50, v1)** | 0.7588 | **0.7734** | 3.44 | 0.5221 (−0.015 [−0.019, −0.011], 9/64) | 8/17 |
+
+At 50/50 the F6 minimax still picks v1: max regret K0h 0.028 (Y_v1, 7/7), K1h 0.011 (Y_v2, 1/7).
+K1h vs the submission at its own switch 20 on Y_v2: +0.018 (6/7).
+
+**Iteration 0 fails its ±0.01 check, so it stops here.** Bench 0.759 (Y_v2) vs 0.725: +0.034, of
+which +0.016 is the F5 bench change (same models). PFF 0.522 vs 0.537: −0.015, outside the band
+and its interval entirely below 0. Both adopted changes lose on PFF (50/50 −0.008, v1 −0.009 at 50/50).
+PFF's labels are PFF's own definition (live at the kick, its own possession dating), so this is
+either a definition mismatch or real overfitting to the hackathon-style rule. With PFF reported
+only, the bench can't tell which. Waiting for Julien.
+
 ## PFF decisions log
 
 PFF Terms of Use (pff.com/terms, updated Oct 12, 2026), checked Oct 30: §1.2 "PFF grants you the

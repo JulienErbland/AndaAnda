@@ -149,10 +149,12 @@ def _rows_job(args):
 
 
 def train(feature_set="base", draws=1, spread=0.0, profile="hackathon", with_pff=False, workers=4,
-          with_metrica=False, self_train=0.0, dead_mix=False, self_train_mode="control"):
+          with_metrica=False, self_train=0.0, dead_mix=False, self_train_mode="control", train_k=0):
     """Full model + one held-out model per group (groups_of). Each match's rows are computed once,
     in parallel, and reused by every fit. draws > 1: each match enters `draws` times, each with its
-    own degrader seed and, when spread > 0, its own random neighbour of the profile (degrade.vary)."""
+    own degrader seed and, when spread > 0, its own random neighbour of the profile (degrade.vary).
+    train_k > 0 (learning curve, DFL only): the full model fits the first k matches (sorted), each
+    held-out model the k matches that follow its own, cyclically."""
     from multiprocessing import Pool
     from bench.__main__ import match_paths
     paths = match_paths(["dfl"] + (["pff"] if with_pff else []) + (["metrica"] if with_metrica else []))
@@ -169,17 +171,25 @@ def train(feature_set="base", draws=1, spread=0.0, profile="hackathon", with_pff
         from . import selftrain
         extra = selftrain.rows(selftrain.real_match(), feature_set, mode=self_train_mode)
     os.makedirs(LOMO_DIR, exist_ok=True)
-    fit_rows([x for r in rows.values() for x in r], extra, self_train).save_model(FULL_MODEL)
+    names = sorted(rows)
+    if train_k:
+        assert not with_pff and not with_metrica and train_k < len(names)
+    keep = {g: names[:train_k] if g is None else
+            [names[(names.index(g) + 1 + i) % len(names)] for i in range(train_k)]
+            for g in [None] + names} if train_k else None
+    fit_rows([x for n, r in rows.items() if keep is None or n in keep[None] for x in r], extra,
+             self_train).save_model(FULL_MODEL)
     with open(META, "w") as f:
         json.dump({"trained_on": sorted(rows), "groups": groups, "profile": profile,
                    "feature_set": feature_set, "draws": draws, "spread": spread,
                    "with_pff": with_pff, "with_metrica": with_metrica,
                    "self_train": self_train, "self_train_mode": self_train_mode,
-                   "dead_mix": dead_mix, "params": LGB_PARAMS,
+                   "dead_mix": dead_mix, "train_k": train_k, "params": LGB_PARAMS,
                    "rounds": ROUNDS}, f, indent=1)
     print("full model ->", os.path.relpath(FULL_MODEL, ROOT), flush=True)
     for g in sorted(set(groups.values())):
-        fit_rows([x for n, r in rows.items() if groups[n] != g for x in r], extra,
+        fit_rows([x for n, r in rows.items() if groups[n] != g and (keep is None or n in keep[g])
+                  for x in r], extra,
                  self_train).save_model(os.path.join(LOMO_DIR, g + ".txt"))
         print("  without", g, flush=True)
 
@@ -293,11 +303,13 @@ if __name__ == "__main__":
                     help="also train on Metrica sample games 1-3 (relabelled with MTAH_DFL_LABELS=hackathon)")
     ap.add_argument("--overwrite-submission-model", action="store_true",
                     help="allow experiment options to write into models/ (the submission model)")
+    ap.add_argument("--train-k", type=int, default=0, help="learning curve: fit on k DFL matches only")
     a = ap.parse_args()
-    experiment = (a.draws, a.vary, a.profile, a.with_pff, a.with_metrica, a.self_train, a.dead_mix) != (
-        1, 0.0, "hackathon", False, False, 0.0, False)
+    experiment = (a.draws, a.vary, a.profile, a.with_pff, a.with_metrica, a.self_train, a.dead_mix,
+                  a.train_k) != (1, 0.0, "hackathon", False, False, 0.0, False, 0)
     if experiment and not os.environ.get("MTAH_MODEL_DIR") and not a.overwrite_submission_model:
         sys.exit("refusing to overwrite the submission model in models/ with experiment options; "
                  "set MTAH_MODEL_DIR=models_exp/<name> (or pass --overwrite-submission-model)")
     train(a.features, a.draws, a.vary, a.profile, a.with_pff, with_metrica=a.with_metrica,
-          self_train=a.self_train, dead_mix=a.dead_mix, self_train_mode=a.self_train_mode)
+          self_train=a.self_train, dead_mix=a.dead_mix, self_train_mode=a.self_train_mode,
+          train_k=a.train_k)

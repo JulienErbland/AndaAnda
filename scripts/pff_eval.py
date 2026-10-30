@@ -109,7 +109,7 @@ def _sweep_job(args):
     clean = Match.load(path)
     view = load_degraded(path, "hackathon", 0).without_labels()
     cache = {}
-    logp = sum(w * np.log(np.clip(learned._single(view, os.path.join(ROOT, BASES[b]), cache), 1e-6, 1.0))
+    logp = sum(w * np.log(np.clip(learned._single(view, os.path.join(ROOT, BASES.get(b, "models_exp/" + b)), cache), 1e-6, 1.0))
                for b, w in zip(bases, weights))
     p = np.exp(logp / sum(weights))
     p /= p.sum(1, keepdims=True)

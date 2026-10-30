@@ -627,13 +627,17 @@ Terms. They do NOT clearly allow model selection -> every decision is made on DF
 reported only (asked Julien).
 
 ## Iteration 0: clean-up
-- [ ] Round 8 (reception, switch 20-60): bench curve mean + per match, PFF per switch, real rate;
+- [x] Round 8 (reception, switch 20-60): bench curve mean + per match, PFF per switch, real rate;
       middle of a flat region; note best-of-N optimism
-- [ ] F5 (L2): dead-ball motion knobs + dead missing rate from the model's own calls, whole match
-- [ ] F6 (L1): label versions written down before scoring; B on each; decided on DFL (not PFF)
-- [ ] change rate per live minute on every relabelled DFL / PFF match vs 2.5-6.8
+- [x] F5 (L2): dead-ball motion knobs + dead missing rate from the model's own calls, whole match
+- [x] F6 (L1): label versions written down before scoring; B on each; decided on DFL (not PFF)
+      -> round 9: K1 (v1 labels) wins the minimax (regret 0.0008 vs 0.0172); kick convention wins
+      (0.0124 vs 0.0395, no tie); 50/50 adopted (+0.019, 7/7)
+- [x] change rate per live minute on every relabelled DFL / PFF match (range now 3.2-7.6)
 - [ ] combined retrain -> must land within ±0.01 of 0.725 / 0.537, else stop and report
-- [ ] PFF decisions log + Bench caveats sections in results.md
+      (round 9b: K1h = R_f + B1_f 50/50 -> bench 0.759 (+0.034, +0.016 of it the F5 bench), PFF
+      0.522 (-0.015) -> FAILS, stopped and reported to Julien Oct 31)
+- [x] PFF decisions log + Bench caveats sections in results.md
 ### Decision rules for L1 and the convention, written Oct 30 22:35 BEFORE any scoring
 Neither PFF (terms) nor the public window (hard rule 2) may choose a label definition, and each
 DFL label version is its own yardstick (scoring B_v1 on v1 labels is circular). So every
