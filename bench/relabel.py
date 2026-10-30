@@ -12,9 +12,11 @@ possession"). DFL gives clean tracking, so the same kind of rule can be applied 
   near_m of it, moving with it (relative speed under rel_ms) for at least control_s;
 - anything else (passes in flight, deflections, duels, touches) keeps the last team.
 
-The knobs are calibrated so the relabelled matches show the public GT's possession rate and
-duration quantiles (`python -m bench relabel --calibrate`); the public window is 17 possessions,
-so the rate and quantiles are targets with error bars, not exact values.
+Provenance of the knobs (organisers' rules, Oct 30: the public 5 minutes are not a tuning set):
+control_s 0.4 s and near_m 1.5 m are possession/touches.py's control definition (CONTROL_S,
+NEAR_M), set on Oct 21 before this rule existed. An Oct 22 grid compared the rule's aggregate
+rate to the public window and was removed; B_lo / B_hi (0.2 s / 1.0 m, 0.6 s / 2.0 m) moved the
+bench by <= 0.005. date_from_touch is checked on PFF's independent labels (todo F6).
 
     python -m bench relabel            # writes external/dfl_hk/*.npz (same match names)
     MTAH_DFL_LABELS=hackathon ...      # every bench script then reads those labels
@@ -32,9 +34,6 @@ from . import EXTERNAL_DIR
 from .match import FPS, A, H, X, Match, graded_mask
 
 OUT_DIR = os.path.join(EXTERNAL_DIR, "dfl_hk")
-# Public GT (evaluation/gt, frames 11185-18684): 17 possessions.
-PUBLIC_RATE = 4.25
-PUBLIC_Q = {10: 2.2, 25: 3.5, 50: 7.6, 75: 20.0, 90: 38.1}
 
 
 @dataclass(frozen=True)
@@ -128,40 +127,6 @@ def stats(labels, match):
     ends = np.concatenate((change, [len(lab)]))
     durs = np.array([(b - a) / FPS for a, b in zip(starts, ends) if lab[a] in (H, A)])
     return len(durs) / (live.sum() / FPS / 60), durs
-
-
-def calibrate(paths, grid=None):
-    """Print, per rule, the relabelled rate and duration quantiles against the public GT."""
-    grid = grid or [Rule(c, n) for c in (0.2, 0.4, 0.6, 0.8, 1.0, 1.5) for n in (1.0, 1.5, 2.0)]
-    matches = [Match.load(p) for p in paths]
-    rows = []
-    for rule in [None] + grid:
-        n_spells, live_min, durs, agree = 0, 0.0, [], []
-        for m in matches:
-            lab = m.labels if rule is None else hackathon_labels(m, rule)
-            rate, d = stats(lab, m)
-            live = graded_mask(m) & np.isin(lab, (H, A))
-            n_spells += len(d)
-            live_min += live.sum() / FPS / 60
-            durs.append(d)
-            both = live & np.isin(m.labels, (H, A))
-            agree.append((lab[both] == m.labels[both]).mean())
-        q = np.percentile(np.concatenate(durs), list(PUBLIC_Q))
-        # distance to the public GT: rate and quantiles on a log scale
-        dist = abs(np.log(n_spells / live_min / PUBLIC_RATE)) + np.mean(
-            np.abs(np.log(q / np.array(list(PUBLIC_Q.values())))))
-        rows.append((dist, rule, n_spells / live_min, q, float(np.mean(agree))))
-        name = "DFL original" if rule is None else "control {:.1f} s, near {:.1f} m".format(
-            rule.control_s, rule.near_m)
-        print("{:<28} rate {:5.2f}  q10/25/50/75/90 {}  agree {:.1%}  dist {:.3f}".format(
-            name, n_spells / live_min, " ".join("{:5.1f}".format(x) for x in q),
-            np.mean(agree), dist), flush=True)
-    print("{:<28} rate {:5.2f}  q10/25/50/75/90 {}".format(
-        "public GT (17 possessions)", PUBLIC_RATE,
-        " ".join("{:5.1f}".format(x) for x in PUBLIC_Q.values())))
-    best = min((r for r in rows if r[1] is not None), key=lambda r: r[0])
-    print("closest rule:", best[1])
-    return best[1]
 
 
 def out_dir(tag=None):

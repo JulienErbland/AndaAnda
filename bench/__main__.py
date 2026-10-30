@@ -2,7 +2,7 @@
 
   fetch [dfl|metrica|all]          download + convert external matches (DFL: one at a time)
   build-hackathon                  convert the gated BAR-ATH data (run locally, after Oct 20)
-  relabel [--calibrate]            hackathon-style possession labels on DFL -> external/dfl_hk/
+  relabel                          hackathon-style possession labels on DFL -> external/dfl_hk/
   reception [--source hackathon]   dead until the first reception -> external/dfl_rx/ (dfl_hk_rx/)
   stats [MATCHES] [--profile P]    aggregate stats of matches, as degraded by P
   run --method M [MATCHES] ...     score a method, print a board + diagnostics, save a report
@@ -122,7 +122,7 @@ def cmd_fetch(args):
 
 def cmd_relabel(args):
     from . import relabel
-    rule = relabel.calibrate(relabel.dfl_paths()) if args.calibrate else relabel.Rule()
+    rule = relabel.Rule()
     if args.control_s is not None or args.near_m is not None:
         rule = relabel.Rule(control_s=args.control_s if args.control_s is not None else rule.control_s,
                             near_m=args.near_m if args.near_m is not None else rule.near_m)
@@ -345,7 +345,6 @@ def main():
     p.set_defaults(func=cmd_fetch)
 
     p = sub.add_parser("relabel")
-    p.add_argument("--calibrate", action="store_true", help="print the rule grid vs the public GT")
     p.add_argument("--control-s", type=float, help="rule: minimum control duration (s)")
     p.add_argument("--near-m", type=float, help="rule: control distance (m)")
     p.add_argument("--tag", help="write to external/dfl_hk_<tag> (robustness variants)")

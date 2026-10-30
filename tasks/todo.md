@@ -569,10 +569,11 @@ real-match effect is always less certain than the bench's.
 - [x] **F6. Relabel rule off the public window.** CONTROL_S 0.4 / NEAR_M 1.5 were set in
       `touches.py` on Oct 21 (a0c9f1a), before the relabel calibration (f5ac33c, Oct 22); B_lo /
       B_hi showed the result barely moves. Left: `date_from_touch` came from the public window's
-      12 changes -> v1 vs v2 on PFF (independent labels) in F8's round; drop PUBLIC_RATE/Q from
-      `calibrate()`.
+      12 changes -> v1 vs v2 on PFF (independent labels), after F8. `calibrate()` and the
+      PUBLIC_RATE/Q constants deleted (Oct 30); provenance in `bench/relabel.py`'s docstring.
 - [ ] **F7. Question for the organisers** (issue on their repo): is matching a bench label
-      definition to the public window's aggregate rate "tuning"? Draft in `docs/`.
+      definition to the public window's aggregate rate "tuning"? And: is a restart D until the
+      kick or until the first reception (settles F8)? Draft: `docs/organiser_question.md`.
 - [ ] **F8. Dead-ball convention (PR #1, max/dev).** Hackathon GT (Julien's reading): a restart
       stays D until the first reception; DFL and PFF go live at the kick; PFF is dead only for
       ball OUT (fouls / offsides stay live). Merge the PR into this branch; apply the reception

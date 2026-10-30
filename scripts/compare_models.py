@@ -50,7 +50,7 @@ def cmd_eval(args):
             view = seen.without_labels()
             pr = learned.probabilities(view)
             for sw in args.switches:
-                pred = learned.decode(view, learned.Params(switch=sw), pr)
+                pred = learned.decode(view, learned.Params(switch=sw, reception_m=args.reception), pr)
                 r = score(clean.labels, pred)
                 out["dfl"].append([clean.name, seed, sw, r["spell_f1_mean"], r["macro_f1"],
                                    spell_rate(clean, pred)])
@@ -67,7 +67,7 @@ def cmd_eval(args):
         hv = hm.without_labels()
         pr = learned.probabilities(hv)
         for sw in args.switches:
-            pred = learned.decode(hv, learned.Params(switch=sw), pr)
+            pred = learned.decode(hv, learned.Params(switch=sw, reception_m=args.reception), pr)
             r = score(hm.labels, pred)
             out["hackathon"][str(sw)] = {"rate": spell_rate(hm, pred),
                                          "public_spell": r["spell_f1_mean"],
@@ -141,6 +141,8 @@ def main():
     p.add_argument("--seeds", type=int, nargs="+", default=[0, 1, 2])
     p.add_argument("--switches", type=float, nargs="+", default=[5, 7, 10, 14, 20])
     p.add_argument("--matches", nargs="+", default=["dfl"], help="match groups, e.g. dfl pff")
+    p.add_argument("--reception", type=float, default=None,
+                   help="decoder: dead until the first reception within this radius (bench/reception.py)")
     p.add_argument("--profile", choices=["hackathon", "stress"], default="hackathon",
                    help="degrader profile the DFL matches are scored under")
     p.set_defaults(func=cmd_eval)

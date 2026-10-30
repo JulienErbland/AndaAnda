@@ -24,6 +24,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("models", nargs="+")
     ap.add_argument("--switches", type=float, nargs="+", default=[1, 2, 3, 5, 7, 10, 14])
+    ap.add_argument("--reception", type=float, default=None, help="decoder reception radius (m)")
     a = ap.parse_args()
     hm = Match.load(match_paths(["hackathon"])[0])
     view = hm.without_labels()
@@ -34,7 +35,7 @@ def main():
         pr = learned.probabilities(view, d)
         rows = []
         for sw in a.switches:
-            pred = learned.decode(view, learned.Params(switch=sw), pr)
+            pred = learned.decode(view, learned.Params(switch=sw, reception_m=a.reception), pr)
             r = score(hm.labels, pred)
             p = np.where(win, pred, X).astype(np.int64)
             n = len(pm.possession_spells(p, pm.valid_runs(np.where(win, 0, X).astype(np.int64))))
