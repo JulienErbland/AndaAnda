@@ -29,6 +29,10 @@ class Match:
     slot_team: np.ndarray   # (S,) int8: 0 home, 1 away
     halves: np.ndarray      # (n, 3) int64: half, first frame, last frame (inclusive)
     labels: np.ndarray = None  # (T,) int8 organiser codes, None when unknown
+    # (T,) bool: the source's own ball-out-of-play flag, only where the labels' D was moved away
+    # from it (bench/reception.py). The degrader hides the ball by it: the tracker sees the ball,
+    # not the labelling convention. None: the labels' D is that flag.
+    ball_dead: np.ndarray = None
 
     @property
     def n_frames(self):
@@ -36,7 +40,7 @@ class Match:
 
     def without_labels(self):
         """What a method gets to see: everything but the answer."""
-        return replace(self, labels=None)
+        return replace(self, labels=None, ball_dead=None)
 
     def save(self, path):
         arrays = dict(ball=self.ball, players=self.players, slot_team=self.slot_team,
@@ -44,6 +48,8 @@ class Match:
                       name=np.asarray(self.name))
         if self.labels is not None:
             arrays["labels"] = self.labels
+        if self.ball_dead is not None:
+            arrays["ball_dead"] = self.ball_dead
         np.savez_compressed(path, **arrays)
 
     @classmethod
@@ -51,7 +57,8 @@ class Match:
         with np.load(path) as z:
             return cls(name=str(z["name"]), pitch=tuple(z["pitch"]), ball=z["ball"],
                        players=z["players"], slot_team=z["slot_team"], halves=z["halves"],
-                       labels=z["labels"] if "labels" in z else None)
+                       labels=z["labels"] if "labels" in z else None,
+                       ball_dead=z["ball_dead"] if "ball_dead" in z else None)
 
 
 def graded_mask(match):

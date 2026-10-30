@@ -1,3 +1,5 @@
+from dataclasses import replace
+
 import numpy as np
 
 from bench import reception
@@ -24,15 +26,36 @@ def _throw_in(receiver=True):
 
 def test_dead_ball_lasts_until_another_player_receives():
     m = _throw_in()
-    lab, ext, missed = reception.reception_labels(m)
+    lab, ext = reception.dead_until_reception(m, m.labels)
     first_live = int(np.flatnonzero(lab != D)[0])
     # the ball is within 1.5 m of home 1 from 42 - 1.5 = 40.5 m, i.e. at 2.05 s
     assert abs(first_live - int(2.05 * FPS)) <= 1
-    assert (lab[first_live:] == H).all() and missed == 0 and len(ext) == 1
+    assert (lab[first_live:] == H).all() and len(ext) == 1
 
 
 def test_no_reception_keeps_dfl_s_restart():
     m = _throw_in(receiver=False)
-    lab, ext, missed = reception.reception_labels(m)
-    assert (lab == m.labels).all() and missed == 1 and len(ext) == 0
+    lab, ext = reception.dead_until_reception(m, m.labels)
+    assert (lab == m.labels).all() and len(ext) == 0
     assert not (lab == A).any()
+
+
+def test_no_ball_at_the_restart_leaves_it_alone():
+    m = _throw_in()
+    m.ball[FPS - 2:FPS + 5] = np.nan                  # the tracker loses the ball at the throw
+    lab, ext = reception.dead_until_reception(m, m.labels)
+    assert (lab == m.labels).all() and len(ext) == 0
+
+
+def test_methods_never_see_the_ball_status_and_the_degrader_uses_it():
+    from bench.degrade import PROFILES, degrade
+    m = _throw_in()
+    lab, _ = reception.dead_until_reception(m, m.labels)
+    rx = replace(m, labels=lab, ball_dead=m.labels == D)
+    assert rx.without_labels().ball_dead is None
+    # the ball is hidden by the real status, so the extended frames are degraded as live play
+    a = degrade(replace(m, labels=lab), PROFILES["hackathon"], seed=0)
+    b = degrade(rx, PROFILES["hackathon"], seed=0)
+    c = degrade(m, PROFILES["hackathon"], seed=0)
+    assert np.array_equal(np.isnan(b.ball[:, 0]), np.isnan(c.ball[:, 0]))
+    assert not np.array_equal(np.isnan(a.ball[:, 0]), np.isnan(c.ball[:, 0]))

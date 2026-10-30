@@ -226,8 +226,8 @@ def _ball_gaps(match, p, rng):
     n = match.n_frames
     graded = graded_mask(match)
     labels = match.labels if match.labels is not None else np.full(n, H)
-    dead = labels == D
-    alive = (labels == H) | (labels == A)
+    dead = labels == D if match.ball_dead is None else match.ball_dead
+    alive = np.isin(labels, (H, A, D)) & ~dead
 
     xy = match.ball[:, :2] * np.asarray(match.pitch, dtype=np.float32)
     pl = match.players[..., :2] * np.asarray(match.pitch, dtype=np.float32)
