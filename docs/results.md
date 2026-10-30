@@ -35,6 +35,7 @@ Public-window macroF1: base 0.894, touches 0.861 (17 possessions; bench macroF1 
 | Oct 21 | M2 + touches + carrier features (61 features), switch 10 | 0.560 | 0.894 | 0.533 | 4.60 | rejected: +0.0095 ± 0.0016 (7/7) on DFL, but only by changing possession more often |
 | Oct 21 | same, switch 17 (real rate back to 4.32) | 0.543 | – | 0.533 | 4.32 | rejected: at equal real-match rate it is no better than M2 + touches (0.547) |
 | Oct 21 | path decoder (player-level), default costs, seed 0 | 0.532 | 0.887 | 0.607 | 4.53 | rejected: −0.015 ± 0.006 vs M2 (1/7); 6 cost variants all −0.013 to −0.022 |
+| Oct 30 | M2 + touches + dead until the first reception (decoder), today's code | 0.507 on reception labels / 0.510 on DFL's | 0.886 / 0.883 | 0.622 | 4.43 | off by default: +0.016 ± 0.002 (7/7) or −0.024 ± 0.002 (0/7) depending on the convention; see below |
 
 Switch sweep, seed 0 (DFL spellF1 / real rate / public): M2 + touches 10: 0.547 / 4.32 / 0.622;
 12: 0.543 / 4.23; 14: 0.538 / 4.21; 20: 0.529 / 4.16. M2 + carrier 10: 0.556 / 4.60 / 0.533;
@@ -804,3 +805,94 @@ costs scaled by beta. Bench vs beta 0 / switch 20 (0.7246): switch 14 −0.012 f
 switch 20 −0.001 to −0.005; switch 30 +0.0065 (beta 0, 7/7) to +0.0102 (beta 4, 7/7). Two
 findings: the submission's switch is now too low on the bench (F3's retraining moved it), and D
 adds +0.004 at switch 30. Both at the edge of the grid: re-run at 30-80 after the F8 retraining.
+### Dead ball until the first reception (Oct 30): built, off by default
+
+In the hackathon ground truth a restart stays `D` until another player first receives the ball.
+That is a definition, read from the public window as CHALLENGE.md says to (and agreed with
+Julien); none of the constants below come from it. DFL's BallStatus goes live at the kick. On
+clean DFL the ball passes 3 m/s a median 3 frames after the switch, for every kind of restart,
+and the first reception by another player comes later:
+
+| restart | n | first reception after DFL's switch, p25 / p50 / p75 (frames) |
+|---|---|---|
+| corner | 51 | 27 / 31 / 36 |
+| free kick | 161 | 22 / 33 / 45 |
+| throw-in | 206 | 20 / 37 / 70 |
+| kick-off | 31 | 24 / 37 / 58 |
+| goal kick | 107 | 38 / 50 / 62 |
+
+So every model trained on DFL learns to end stoppages 1-2 s early. `bench/reception.py` has one
+rule for this: from each restart, the taker is the player nearest the ball, and `D` lasts until
+another player is the nearest one within a radius, two frames running (no ball at the restart, or
+no reception in time: unchanged). It serves twice:
+
+- scoring labels: on clean DFL, 1.5 m, 6 s, DFL possession elsewhere (`python -m bench reception`,
+  then `MTAH_DFL_LABELS=reception`). 90-111 restarts extended per match, median 24-33 frames; dead
+  share +1.9 to +2.5 points.
+- decoder: `learned.Params(reception_m=2.0, reception_s=3.0)` applies it to the predicted labels,
+  on the tracking the method sees (off by default). 2 m because that tracking is noisy; 3 s is
+  about the 90th percentile of DFL's reception delay.
+
+Bench bug found on the way: the degrader hid the ball by the labels' `D`, so with these labels the
+ball in flight after a kick went missing at the dead-ball rate (61% instead of 19%). The tracker
+sees the ball, not the convention: `Match.ball_dead` now carries DFL's BallStatus in the
+reception files, the degrader uses it, and `without_labels()` drops it.
+
+On the fixed bench, scored on the reception labels, 3 seeds, switch 10. S0 is the submission
+recipe retrained with today's code; R2 is the same recipe trained on the reception labels.
+
+| | spellF1 | macroF1 | vs S0 (paired) |
+|---|---|---|---|
+| S0 | 0.491 | 0.877 | – |
+| **S0 + reception in the decoder** | **0.507** | **0.886** | **+0.016 ± 0.002, 7/7** |
+| R2 (trained on the reception labels) | 0.503 | 0.883 | +0.012 (−0.004 ± 0.002 vs the decoder rule, 2/7) |
+
+| scenario (3 seeds) | n | S0 | S0 + reception | R2 |
+|---|---|---|---|---|
+| hold through a ball gap | 604 | 23.2% | 23.2% | 19.4% |
+| change in a ball gap | 1099 | 25.1% | 25.1% | 20.8% |
+| change during a blackout | 510 | 18.8% | 18.8% | 14.7% |
+| restart, same team | 354 | 63.6% | 64.1% | 60.2% |
+| restart, other team | 1050 | 59.0% | 60.2% | 53.0% |
+| dead ball, ball visible | 533 | 96.6% | 99.1% | 97.7% |
+| slow live play | 348 | 88.2% | 87.9% | 86.5% |
+| interception | 2196 | 26.9% | 26.9% | 26.6% |
+| kick-off | 24 | 12.5% | 12.5% | 12.5% |
+
+The decoder rule only acts right after a predicted restart, so ball-gap play is untouched; slow
+play loses one clip of 348. Training on the new labels instead makes the model see dead ball in
+live ball gaps (the extended frames look like a pass in flight), so R2 is rejected. A first run,
+before the degrader fix, had shown R +0.002 and the ball-gap losses; both came mostly from the bug.
+
+Scored on DFL's own labels instead (live at the kick), the same rule costs −0.024 ± 0.002 (0/7;
+restarts 69.7% -> 65.6% and 64.9% -> 61.0%). The bench cannot settle it: the sign depends only on
+which convention the hackathon ground truth follows, and the evidence is mixed:
+
+- for "until the reception": Julien's reading of the ground truth, and a teammate's (throw-ins);
+- against, or for a shorter delay: in Metrica's open Sample Game 3 (same provider and format as
+  the hackathon tracking) the ball reappears exactly at the restart kick on 74 of 74 restarts,
+  22-40 frames before the reception (not the corrected tracking's dead flag, so not conclusive).
+
+Real match, submission model (`models/lgbm.txt`), aggregates: dead share of graded frames 48.6% ->
+49.9%, possessions per live minute 4.32 -> 4.43. Kept off until the convention is settled.
+
+S0 is not `models/lgbm.txt`: the submission model was trained on Oct 21, before the Oct 22
+degrader changes, so `python -m possession.learned train` no longer rebuilds it.
+
+### Frozen or glued ball in the real tracking (Oct 30)
+
+Does the real tracker report a ball that is frozen, or stuck to one player, more often than the
+bench? Aggregates over the whole real match against degraded DFL (`degrader_realism`-style):
+
+| | real | DFL degraded [range] | DFL clean |
+|---|---|---|---|
+| ball still for >= 1 s while players run (> 2 m/s), per min | 0.019 | 0.007 [0.000-0.020] | 0.256 |
+| same, nobody within 3 m, per min | 0.009 | 0.001 [0.000-0.010] | 0.171 |
+| same player within 1 m: run p90 / p99 (s) | 1.7 / 4.1 | 1.8 / 4.5 | 1.7 / 5.0 |
+| same player within 1 m for >= 6 s, per min | 0.038 | 0.066 | 0.148 |
+| same player within 0.3 m for >= 2 s, per min | 0.038 | 0.020 | 0.139 |
+
+Both happen about 1-3 times per match, at rates close to the bench. The real ball sits within
+0.3 m of a player more often than the degraded one (5.7% vs 3.0% of seen frames), but the clean
+DFL ball does too (3.9%): the degrader's position noise blurs it, and runs are no longer. Not worth
+a degrader artefact or a consistency rule.

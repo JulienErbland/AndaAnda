@@ -595,3 +595,19 @@ Submission: R_g + B_g (`models/`), switch 20; bench 0.725, PFF 0.537 (commit 269
   Resume: `MTAH_DFL_LABELS=hackathon uv run python scripts/eval_mbr.py bench --temps 0.5 1 2 4 8`
   (~20 min), then `pff --temp <best>` and `real --temp <best>`.
 - Then D, E (order unchanged).
+# JEPA (Oct 28): worth a closer look?
+
+Open question, nothing built. A JEPA learns without labels by predicting the representation of a
+masked part of the input. Our limits are few labels (7 DFL matches, PFF blocked by its licence)
+and the gap between the bench and the real tracking, so self-supervised pretraining could help
+with both. No published work applies JEPA to football tracking yet.
+- [ ] read further before building anything:
+      T-JEPA / HiT-JEPA (trajectories), V-JEPA 2 / 2.1 (video, MIT code, needs a GPU in practice),
+      PathCRF (ball-free possession path on the same 7 DFL matches, code public),
+      "Multi-Modal Soccer Scene Analysis with Masked Pre-Training" (tactical-camera crops)
+- [ ] best candidate: a small JEPA on tracking (DFL + Metrica + the real ATD, run locally), masking
+      the ball and some players; its embeddings become extra M2 features, decoder unchanged
+- [ ] go/no-go: linear probe of H/A/D on the embeddings, held out per DFL match; then paired
+      comparison vs the submission at the same real-match change rate
+- Constraints: CPU only on this machine; weights derived from the real match can't be committed,
+  so pretraining would have to run inside the deterministic submit command (adds torch)

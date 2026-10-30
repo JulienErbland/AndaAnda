@@ -20,7 +20,7 @@ from dataclasses import dataclass, replace
 
 import numpy as np
 
-from bench import ROOT
+from bench import ROOT, reception
 from bench.match import FPS, A, D, H, X, graded_mask
 
 from . import context, hmm
@@ -60,6 +60,12 @@ class Params:
     # A half is dead until its kick-off when it is not graded from it (restarts.kickoff_frames):
     # the real second half is graded ~2 min before kick-off, all D.
     kickoff_dead: bool = True
+    # Keep each predicted restart dead until the first reception (bench/reception.py), for a
+    # ground truth that ends stoppages there rather than at the kick like DFL. 2 m (1.5 m on the
+    # clean labels) for the noisy tracking; 3 s is about the 90th percentile of DFL's reception
+    # delay. None: off. Off until the convention is settled (docs/results.md, Oct 30).
+    reception_m: float = None
+    reception_s: float = 3.0
 
 
 def swap_teams(match):
@@ -258,8 +264,11 @@ def decode(match, p=Params(), probs=None, bonus=None, touch_list=None):
     probs = probabilities(match) if probs is None else probs
     scores_ = scores(match, p, probs, bonus)
     sw = None if p.switch_touch is None else switch_costs(match, p, touch_list)
-    return hmm.decode_scores(match, scores_, hmm.Params(switch=p.switch, stop=p.stop,
-                                                         restart=p.restart), sw)
+    labels = hmm.decode_scores(match, scores_, hmm.Params(switch=p.switch, stop=p.stop,
+                                                          restart=p.restart), sw)
+    if p.reception_m is None:
+        return labels
+    return reception.dead_until_reception(match, labels, p.reception_m, p.reception_s)[0]
 
 
 def predict(match):

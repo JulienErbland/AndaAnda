@@ -194,7 +194,9 @@ def _dead_ball_motion(ball, match, p, rng):
         return
     m = np.asarray(match.pitch, dtype=np.float64)
     pl_all = match.players[..., :2].astype(np.float64) * m
-    dead = np.r_[False, match.labels == D, False].astype(np.int8)
+    # the physical stoppage (ball_dead), not a labelling convention that ends it at the reception
+    dead = np.r_[False, match.labels == D if match.ball_dead is None else match.ball_dead,
+                 False].astype(np.int8)
     edges = np.flatnonzero(np.diff(dead))
     for a, b in zip(edges[::2], edges[1::2]):
         if b >= match.n_frames or b - a < FPS or np.isnan(ball[b, 0]):
@@ -321,8 +323,8 @@ def _ball_gaps(match, p, rng):
     n = match.n_frames
     graded = graded_mask(match)
     labels = match.labels if match.labels is not None else np.full(n, H)
-    dead = labels == D
-    alive = (labels == H) | (labels == A)
+    dead = labels == D if match.ball_dead is None else match.ball_dead
+    alive = np.isin(labels, (H, A, D)) & ~dead
 
     xy = match.ball[:, :2] * np.asarray(match.pitch, dtype=np.float32)
     pl = match.players[..., :2] * np.asarray(match.pitch, dtype=np.float32)
