@@ -496,3 +496,64 @@ detected touches do not mark the short possessions precisely enough (on degraded
 detector finds ~61% of real hand-overs, and contacts fire in duels). On this bench the submission
 model over-changes (5.30 vs 4.38), the opposite of P on PFF, and switch 20 is +0.03 better; the
 real-match rate at switch 20 (4.16) stays near the public 4.25.
+
+### Dead ball until the first reception (Oct 30)
+
+In the hackathon ground truth a restart stays `D` until another player first receives the ball
+(agreed with Julien). DFL's BallStatus goes live at the kick. On clean DFL the ball passes 3 m/s a
+median 3 frames after the switch, for every kind of restart, and the first reception by another
+player comes later:
+
+| restart | n | first reception after DFL's switch, p25 / p50 / p75 (frames) |
+|---|---|---|
+| corner | 51 | 27 / 31 / 36 |
+| free kick | 161 | 22 / 33 / 45 |
+| throw-in | 206 | 20 / 37 / 70 |
+| kick-off | 31 | 24 / 37 / 58 |
+| goal kick | 107 | 38 / 50 / 62 |
+
+So every model trained on DFL learns to end stoppages 1-2 s early. `bench/reception.py` keeps
+DFL's possession and extends `D` from each restart to the first frame where a player other than the
+taker is nearest the ball within 1.5 m (two frames running, at most 6 s):
+`python -m bench reception`, then `MTAH_DFL_LABELS=reception`. Per match: 91-111 restarts
+extended, median 24-34 frames, at most 2 with no reception; dead share +2.0 to +2.5 points. Nothing
+in the rule comes from the hackathon labels.
+
+S0 is the submission recipe retrained with today's code (touch features, DFL labels); R is the
+same trained on the reception labels. Both are scored on the reception labels, 3 seeds:
+
+| switch | S0 spellF1 | R spellF1 | R - S0 (paired) | R better on |
+|---|---|---|---|---|
+| 5 | 0.485 | 0.494 | +0.009 ± 0.004 | 6/7 |
+| 7 | 0.486 | 0.491 | +0.006 ± 0.003 | 6/7 |
+| 10 | 0.483 | 0.486 | +0.002 ± 0.003 | 5/7 |
+| 14 | 0.480 | 0.481 | +0.002 ± 0.002 | 5/7 |
+| 20 | 0.468 | 0.473 | +0.005 ± 0.002 | 6/7 |
+
+macroF1 0.874 -> 0.878 at switch 10. The sign is positive at every switch but the gain at switch 10
+is within noise. On the real match R predicts more dead ball (54.7% of graded frames vs 50.2%) with
+the same number of stoppages (97 vs 96), so it lengthens them as intended. Scenarios that got worse
+(seed 0): hold through a ball gap 67% -> 58%, change in a ball gap 26% -> 19%, change during a
+blackout 19% -> 12%; dead ball visible 96% -> 98%. Not adopted yet: the labels are closer to the
+target definition, but the gain is small and the ball-gap scenarios need a look first.
+
+S0 is not `models/lgbm.txt`: the submission model was trained on Oct 21, before the Oct 22
+degrader changes, so `python -m possession.learned train` no longer rebuilds it.
+
+### Frozen or glued ball in the real tracking (Oct 30)
+
+Does the real tracker report a ball that is frozen, or stuck to one player, more often than the
+bench? Aggregates over the whole real match against degraded DFL (`degrader_realism`-style):
+
+| | real | DFL degraded [range] | DFL clean |
+|---|---|---|---|
+| ball still for >= 1 s while players run (> 2 m/s), per min | 0.019 | 0.007 [0.000-0.020] | 0.256 |
+| same, nobody within 3 m, per min | 0.009 | 0.001 [0.000-0.010] | 0.171 |
+| same player within 1 m: run p90 / p99 (s) | 1.7 / 4.1 | 1.8 / 4.5 | 1.7 / 5.0 |
+| same player within 1 m for >= 6 s, per min | 0.038 | 0.066 | 0.148 |
+| same player within 0.3 m for >= 2 s, per min | 0.038 | 0.020 | 0.139 |
+
+Both happen about 1-3 times per match, at rates close to the bench. The real ball sits within
+0.3 m of a player more often than the degraded one (5.7% vs 3.0% of seen frames), but the clean
+DFL ball does too (3.9%): the degrader's position noise blurs it, and runs are no longer. Not worth
+a degrader artefact or a consistency rule.

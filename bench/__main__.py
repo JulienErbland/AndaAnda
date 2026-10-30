@@ -3,12 +3,14 @@
   fetch [dfl|metrica|all]          download + convert external matches (DFL: one at a time)
   build-hackathon                  convert the gated BAR-ATH data (run locally, after Oct 20)
   relabel [--calibrate]            hackathon-style possession labels on DFL -> external/dfl_hk/
+  reception                        DFL labels, dead until the first reception -> external/dfl_rx/
   stats [MATCHES] [--profile P]    aggregate stats of matches, as degraded by P
   run --method M [MATCHES] ...     score a method, print a board + diagnostics, save a report
   plot --run TAG --match NAME ...  timeline strip (GT / prediction / ball seen / errors) as PNG
 
 MATCHES: dfl, metrica, hackathon, all, or match names (default: dfl). With
-MTAH_DFL_LABELS=hackathon, "dfl" reads the relabelled matches (bench/relabel.py). Hackathon output is
+MTAH_DFL_LABELS=hackathon, "dfl" reads the relabelled matches (bench/relabel.py); with
+MTAH_DFL_LABELS=reception, the ones from bench/reception.py. Hackathon output is
 aggregate-only on the console; per-frame artefacts stay in reports/ on your machine.
 """
 
@@ -28,17 +30,23 @@ from .match import D, Match, graded_mask
 
 
 def _dfl_dir():
-    """MTAH_DFL_LABELS: unset -> DFL's labels; hackathon -> dfl_hk; hackathon-<tag> -> dfl_hk_<tag>."""
+    """MTAH_DFL_LABELS: unset -> DFL's labels; hackathon -> dfl_hk; hackathon-<tag> -> dfl_hk_<tag>;
+    reception -> dfl_rx."""
     from .relabel import out_dir
     v = os.environ.get("MTAH_DFL_LABELS", "")
     if not v:
         return os.path.join(EXTERNAL_DIR, "dfl")
+    if v == "reception":
+        from .reception import OUT_DIR
+        if not os.path.isdir(OUT_DIR):
+            sys.exit("MTAH_DFL_LABELS=reception: {} missing; run `python -m bench reception`".format(OUT_DIR))
+        return OUT_DIR
     if v == "hackathon" or v.startswith("hackathon-"):
         d = out_dir(v[len("hackathon-"):] if "-" in v else None)
         if not os.path.isdir(d):
             sys.exit("MTAH_DFL_LABELS={}: {} missing; run `python -m bench relabel`".format(v, d))
         return d
-    sys.exit("MTAH_DFL_LABELS must be unset, 'hackathon' or 'hackathon-<tag>'")
+    sys.exit("MTAH_DFL_LABELS must be unset, 'hackathon', 'hackathon-<tag>' or 'reception'")
 
 
 def match_paths(selectors):
@@ -110,6 +118,11 @@ def cmd_relabel(args):
         rule = relabel.Rule(control_s=args.control_s if args.control_s is not None else rule.control_s,
                             near_m=args.near_m if args.near_m is not None else rule.near_m)
     relabel.write(relabel.dfl_paths(), rule, args.tag)
+
+
+def cmd_reception(args):
+    from . import reception
+    reception.write(reception.dfl_paths())
 
 
 def cmd_stats(args):
@@ -324,6 +337,9 @@ def main():
     p.add_argument("--near-m", type=float, help="rule: control distance (m)")
     p.add_argument("--tag", help="write to external/dfl_hk_<tag> (robustness variants)")
     p.set_defaults(func=cmd_relabel)
+
+    p = sub.add_parser("reception")
+    p.set_defaults(func=cmd_reception)
 
     p = sub.add_parser("build-hackathon")
     p.set_defaults(func=lambda a: epts.hackathon())
