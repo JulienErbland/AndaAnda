@@ -564,9 +564,7 @@ which convention the hackathon ground truth follows, and the evidence is mixed:
 - for "until the reception": Julien's reading of the ground truth, and a teammate's (throw-ins);
 - against, or for a shorter delay: in Metrica's open Sample Game 3 (same provider and format as
   the hackathon tracking) the ball reappears exactly at the restart kick on 74 of 74 restarts,
-  22-40 frames before the reception (not the corrected tracking's dead flag, so not conclusive);
-  and on the public window the rule leaves spellF1 at 0.622 and lowers macroF1 0.861 -> 0.849
-  (4 stoppages, a pipeline check, not a reason to choose).
+  22-40 frames before the reception (not the corrected tracking's dead flag, so not conclusive).
 
 Real match, submission model (`models/lgbm.txt`), aggregates: dead share of graded frames 48.6% ->
 49.9%, possessions per live minute 4.32 -> 4.43. Kept off until the convention is settled.
