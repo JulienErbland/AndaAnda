@@ -43,11 +43,12 @@ CLASS_OF = {H: 0, A: 1, D: 2}
 
 @dataclass(frozen=True)
 class Params:
-    # switch: chosen on the DFL bench only (round 9, Oct 31): the middle of its flat 30-40 for
-    # models/ensemble.json (R + B1, 50/50). PFF and the public window are reported only; the real
-    # rate (3.44) is a range check against 3.2-7.6 changes per live minute (docs/results.md).
+    # switch: chosen on the DFL bench only for models/ensemble.json (LightGBM R + B1 and the
+    # temporal CNNs TR + TB1, 1/4 each; iteration 3, Oct 31): the best of the seed 0-2 curve,
+    # confirmed on fresh seeds 3-5. PFF and the public window are reported only; the real rate
+    # (3.32) is a range check against 3.2-7.6 changes per live minute (docs/results.md).
     weight: float = 1.0           # lambda: per-frame log-probability weight
-    switch: float = 30.0
+    switch: float = 40.0
     stop: float = 40.0
     restart: float = 40.0
     # Cheaper switch into a team within touch_window_s of one of its detected touches

@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")/.."
 L=reports/compare
-R="uv run --group tcn"
+R="uv run"
 [ -f models_exp/T_R/lomo/dfl-DFL-MAT-J03WR9.pt ] || MTAH_MODEL_DIR=models_exp/T_R $R python -m possession.tcn > $L/iter2_T_R_train.log 2>&1
 [ -f models_exp/T_B1/lomo/dfl-DFL-MAT-J03WR9.pt ] || MTAH_DFL_LABELS=hackathon-v1 MTAH_MODEL_DIR=models_exp/T_B1 $R python -m possession.tcn > $L/iter2_T_B1_train.log 2>&1
 SW="20 30 40 60"

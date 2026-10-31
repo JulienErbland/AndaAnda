@@ -1,0 +1,29 @@
+{
+ "trained_on": [
+  "dfl-DFL-MAT-J03WMX",
+  "dfl-DFL-MAT-J03WN1",
+  "dfl-DFL-MAT-J03WOH",
+  "dfl-DFL-MAT-J03WOY",
+  "dfl-DFL-MAT-J03WPY",
+  "dfl-DFL-MAT-J03WQQ",
+  "dfl-DFL-MAT-J03WR9"
+ ],
+ "feature_set": "restart",
+ "draws": 2,
+ "dead_mix": true,
+ "labels": "",
+ "net": [
+  64,
+  6,
+  3,
+  0.1
+ ],
+ "fit": [
+  0.001,
+  8,
+  1024,
+  1500,
+  0
+ ],
+ "stride": 5
+}

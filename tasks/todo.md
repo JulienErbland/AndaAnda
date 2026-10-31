@@ -712,4 +712,5 @@ is disclosed and the optimism is measured by the fresh seeds). The rubric applie
 the fresh seeds (Y_v2). PFF, the real rate and the public window are reported only. (d): TL is wired
 into the submission with MTAH_MODEL_DIR=models_exp/ens_TL, built twice (cmp) and validated.
 Ceiling: the same 7 matches; fresh seeds re-draw only the degradation, not the football.
-- [ ] stop at first GOOD grade from iteration 2 on, or after 5; summary
+- [x] 3: CNN + LightGBM mix on fresh seeds -> GOOD (mine and the grader's); ADOPTED
+- [x] stop at first GOOD grade from iteration 2 on, or after 5; summary

@@ -50,15 +50,19 @@ ATD ──► features ──► 2 LightGBM models ──► geometric mean ─�
      next to a player, no control after), contact; last / next team and time since / until;
    - `restarts.py` (6): restarts (still ball >= 1.5 s then kicked; kind from where it is taken,
      team from the taker; kick-off line-ups without the ball); last / next team, kind, time.
-2. **Two evidence models** (LightGBM multiclass, 300 rounds, every 3rd frame, home/away swap
+2. **Four evidence models**: two LightGBM (multiclass, 300 rounds, every 3rd frame, home/away swap
    augmentation, deterministic), trained on the 7 DFL matches degraded twice (dead ball moving /
    parked, so neither tracker's dead-ball habit becomes a shortcut):
    - `models/R` × 0.5: DFL's labels, context + touches + restarts (54 features);
    - `models/B` × 0.5: hackathon-style labels dated at the control start (v1), context + touches
      (48 features). Weights and label version decided on the DFL bench (round 9, Oct 31).
+   - `models/TR`, `models/TB1` × 0.25 each (and R, B × 0.25): temporal CNNs (`tcn.py`, dilated
+     1-D CNN over the feature sequence at 5 fps, ~25 s receptive field, PyTorch CPU, seeded and
+     deterministic, 4 threads) on the same labels as R and B1 (iteration 3, Oct 31).
    B is better calibrated on the bench but changes possession too rarely on the real match; R the
-   reverse. The mix (`models/ensemble.json`) beats both on the DFL bench and on PFF.
-3. **Decoder** (`hmm.py`): 3-state Viterbi per half on the log-probabilities; penalties switch 30
+   reverse. The CNN alone scores like LightGBM but errs differently, so the 4-way geometric
+   mean (`models/ensemble.json`) beats the LightGBM pair on the bench and on PFF.
+3. **Decoder** (`hmm.py`): 3-state Viterbi per half on the log-probabilities; penalties switch 40
    (H <-> A, chosen on the DFL bench), stop 40, restart 40. Turns flickering evidence into possessions.
 4. **Kick-off rule**: a half that is not graded from its kick-off is dead until it (the real
    second half is graded ~2 min early, all `D`).
@@ -75,7 +79,8 @@ ATD ──► features ──► 2 LightGBM models ──► geometric mean ─�
 | R + B dead-ball-mixed, switch 20 (corrected bench) | 0.683 | 0.509 | 3.56 | 0.622 |
 | R + B retrained on the recalibrated gaps, switch 20 (until Oct 31) | 0.725 | 0.537 | 3.69 | 0.622 |
 | *F5 bench (Oct 31): dead-ball knobs from the model's own calls; same models score 0.741* | | | | |
-| **R + B1 (v1 labels), 50/50, switch 30 (submission, iteration-0 baseline)** | **0.759** | **0.522** | **3.44** | **0.496** |
+| R + B1 (v1 labels), 50/50, switch 30 (iteration-0 baseline) | 0.759 | 0.522 | 3.44 | 0.496 |
+| **R + B1 + TR + TB1 (CNNs), 1/4 each, switch 40 (submission, iteration 3)** | **0.776** (fresh seeds: 0.773 vs 0.748) | **0.529** | **3.32** | **0.480** |
 
 The bench was corrected twice on Oct 28 (moving dead ball; ball gaps split live 7% / dead 80%),
 so its numbers are not comparable across those rows; PFF is unchanged throughout. The baseline

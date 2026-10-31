@@ -1036,6 +1036,29 @@ Reported only: **the 4-member mix** (T_R, T_B1, models/R, models/B, 1/4 each, fi
 0.7719 / 0.7723 / 0.7763 / 0.7743 at switch 20 / 30 / 40 / 60, +0.0135 at 30 (5/7); real rate 3.43
 at 30. Taken to iteration 3 with a fresh-seed confirmation, since these numbers have been seen.
 
+### Iteration 3: CNN + LightGBM mix, confirmed on fresh seeds (Oct 31): GOOD, adopted
+
+TL = models/R + models/B + T_R + T_B1, 1/4 each (weights fixed before any scoring), switch 40 (the
+best of the seen seed 0-2 curve). Graded on FRESH degrader seeds 3-5, never scored before;
+`scripts/iter3_TL.sh`. Plan in `tasks/todo.md`, written before the run.
+
+| fresh seeds 3-5 | bench Y_v2 | PFF (reported, vs 0.5221, 95%) | real rate | public (reported) |
+|---|---|---|---|---|
+| baseline (switch 30) | 0.7481 | 0.5221 | 3.44 | 8/17 |
+| **TL, switch 40** | **0.7726** (+0.0245 ± 0.0045, 6/7) | 0.5287 (+0.0065 [+0.0023, +0.0110], 44/64) | 3.32 | 8/17 |
+| TL, switch 30 (reported) | 0.7736 (+0.0255, 6/7) | 0.5305 (+0.0084 [+0.0036, +0.0130]) | 3.43 | 8/17 |
+
+Per match (TL@40 − baseline): +0.029 +0.030 +0.021 +0.029 −0.001 +0.028 +0.036. Seeds 0-2: 0.7763
+vs 0.7588. Grades: mine GOOD, the separate grader's GOOD (a, b, c, d all pass). (d): the official
+`possession.submit` is byte-identical over two runs, equal to the graded candidate's file; the
+validator passes; 179 possessions, mean 18.1 s (baseline 185 / 17.4 s).
+
+Caveats (the grader's): the fresh seeds re-draw the degradation, not the matches; on them, switch
+30 is as good as 40 (switch 40 is kept, as graded, rather than re-chosen after the fact); the real
+rate 3.32 is close to the 3.2 floor and the bench undercounts (3.87 vs 4.38); 6/7 rests on one
+−0.001 match; torch results were checked on one machine (4 threads pinned in `tcn.py`; another
+CPU could differ in the last bits).
+
 ### Bench audit (Oct 31, step 2)
 
 - **Match spread**: the baseline's per-match spellF1 on Y_v2 spans 0.709-0.797 (switch 30), so

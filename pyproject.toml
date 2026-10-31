@@ -9,12 +9,11 @@ dependencies = [
     "matplotlib",
     "lightgbm>=4.7.0",
     "opencv-python-headless>=5.0.0.93",
+    "torch>=2.11.0",   # temporal CNN members (possession/tcn.py); CPU wheels
 ]
 
 [dependency-groups]
 dev = ["pytest"]
-# iteration 2 (possession/tcn.py), experiment only; CPU wheels
-tcn = ["torch>=2.11.0"]
 
 [tool.uv]
 package = false

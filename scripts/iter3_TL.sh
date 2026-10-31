@@ -3,7 +3,7 @@
 set -e
 cd "$(dirname "$0")/.."
 L=reports/compare
-R="uv run --group tcn"
+R="uv run"
 ev() { [ -f $L/$1.json ] || MTAH_DFL_LABELS=hackathon MTAH_MODEL_DIR=$2 $R python scripts/compare_models.py eval \
     --seeds 3 4 5 --switches 30 40 --out $L/$1.json > $L/$1.log 2>&1; }
 ev iter3_base_s345 models

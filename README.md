@@ -14,9 +14,11 @@ label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1
   - `hmm.py`: M1, hand-built evidence and a Viterbi decoder.
   - `learned.py`: M2, LightGBM evidence (`context.py` + `touches.py` + `restarts.py` features)
     in the same decoder; a model dir may be an ensemble (`ensemble.json`). The submission
-    default is `models/ensemble.json`: models/R (DFL labels, restart features) × 0.5 +
-    models/B (hackathon-style v1 labels, touch features) × 0.5, switch 30; both trained on two
-    degraded copies of each match, the dead ball moving in one and parked in the other.
+    default is `models/ensemble.json`: models/R (DFL labels, restart features), models/B
+    (hackathon-style v1 labels, touch features) and the temporal CNNs models/TR, models/TB1
+    (same labels), 1/4 each, switch 40; all trained on two degraded copies of each match, the
+    dead ball moving in one and parked in the other.
+  - `tcn.py`: the temporal CNN evidence (dilated 1-D CNN, PyTorch CPU, deterministic).
   - `touches.py`: touch detector (control / deflection / contact) feeding M2.
   - `restarts.py`: restart detector (when, kind, team) and kick-off line-ups; a half is dead
     until its kick-off (the real second half is graded ~2 min before it).
@@ -43,7 +45,8 @@ public window's 17 possessions put it anywhere in 2.5-6.8 per live minute). Full
 | R + B, dead-ball-mixed training | 20 | 0.710 | 0.509 | 3.56 | 0.622 |
 | R + B retrained on it (until Oct 31) | 20 | 0.725 | 0.537 | 3.69 | 0.622 |
 | *F5 bench Oct 31 (dead-ball knobs from the model's own calls): the row above scores 0.741* | | | | | |
-| **R + B1 (v1 labels), 50/50 (current default)** | **30** | **0.759** | **0.522** | **3.44** | **0.496** |
+| R + B1 (v1 labels), 50/50 | 30 | 0.759 | 0.522 | 3.44 | 0.496 |
+| **R + B1 + 2 temporal CNNs, 1/4 each (current default)** | **40** | **0.776** | **0.529** | **3.32** | **0.480** |
 
 ## Setup
 

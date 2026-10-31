@@ -2,8 +2,8 @@
 arXiv 1803.01271) over the per-frame feature sequence, in place of LightGBM's per-frame trees.
 Same features, labels and decoder; a model dir with `tcn.json` is used by learned._single.
 
-    MTAH_MODEL_DIR=models_exp/T_R uv run --group tcn python -m possession.tcn --features restart
-    MTAH_DFL_LABELS=hackathon-v1 MTAH_MODEL_DIR=models_exp/T_B1 uv run --group tcn python -m possession.tcn
+    MTAH_MODEL_DIR=models_exp/T_R uv run python -m possession.tcn --features restart
+    MTAH_DFL_LABELS=hackathon-v1 MTAH_MODEL_DIR=models_exp/T_B1 uv run python -m possession.tcn
 
 Runs at 5 fps (every STRIDE-th frame); training crops start at a random phase, prediction runs
 every phase and interleaves them back to 25 fps. NaN features -> 0 plus a missing indicator.
