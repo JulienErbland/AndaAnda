@@ -681,4 +681,25 @@ PFF, the real rate and the public window are reported only (grade b is reported,
 - [x] 1: research list; D on the clean baseline at the round-8 switch; audit; grade (subagent)
       -> FAIL (bench −0.0008 at beta 1, 3/7; grader FAIL, mine PARTIAL); not adopted
 - [ ] 2: a different base; grade
+### Iteration 2 plan, written Oct 31 BEFORE scoring
+Candidates for a very different base (CPU only here: 8 cores, no GPU):
+1. **Temporal CNN evidence** (`possession/tcn.py`): a dilated 1-D CNN (Bai et al. 2018, "An
+   Empirical Evaluation of Generic Convolutional and Recurrent Networks", arXiv 1803.01271) over
+   the per-frame feature sequence at 5 fps (receptive field ~25 s), replacing LightGBM's
+   per-frame trees + hand-made context windows. Same features, labels, decoder. CHOSEN: the
+   learner changes, nothing else, so the comparison is clean, and it trains on CPU.
+2. PathCRF / TranSPORTmer: need a GPU and a per-fold retrain (leakage of the shipped weights).
+3. Domain-adversarial training: needs a neural base first (candidate 1 gives one).
+Rule: RULES.md "**Any method at all** ... Any language, any framework." New tool: PyTorch
+(CPU wheels, dependency group `tcn`; docs checked: torch.manual_seed, use_deterministic_algorithms,
+set_num_threads, docs.pytorch.org 2.14; uv's PyTorch guide for the CPU index).
+Setup, fixed before scoring: two members mirroring the baseline (T_R: DFL labels, restart
+features; T_B1: v1 labels, same features), 50/50, draws 2 + dead-mix + team swap, held out per
+match. Net: 6 residual blocks, 64 channels, kernel 3, dilations 1-32, dropout 0.1; Adam 1e-3,
+batch 8 crops x 1024 steps, 1500 steps; NaN -> 0 plus a missing indicator; standardised on the
+training folds. No early stopping, nothing tuned on any held-out match. Switch grid {20, 30, 40, 60}:
+the middle of the flat top on Y_v2; best-of-4 optimism reported. Decided on Y_v2 (grade a); Y_v1,
+PFF, the real rate and the public window are reported only. TCN + LightGBM mixes: reported only
+(a candidate for a later iteration, not adopted here).
+
 - [ ] stop at first GOOD grade from iteration 2 on, or after 5; summary
