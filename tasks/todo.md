@@ -658,6 +658,26 @@ Yardsticks: Y_v2 = dfl_hk, Y_v1 = dfl_hk_v1 (regenerated: `relabel --tag v1 --da
 Y_rx = dfl_hk_rx. F6: K0 vs K1 on Y_v2, Y_v1. Convention: K0 vs K2 on Y_v2, Y_rx.
 
 ## Iterations 1+
+### Iteration 1 plan, written Oct 31 BEFORE scoring
+Candidates (step 1; links checked Oct 30):
+1. **D: learned switch costs** (`possession/changes.py`): +0.004 at switch 30 on the old bench.
+   Smallest change, no new data. CHOSEN (the brief's iteration 1).
+2. PathCRF (Kim et al., arXiv 2602.12080, github.com/hyunsungkim-ds/pathcrf, MPL-2.0): CRF over
+   ball paths. Trained on the same 7 DFL matches, so its shipped weights leak into our held-out
+   bench; it would need a retrain per fold. A very different base: iteration-2 candidate.
+3. TranSPORTmer (arXiv 2410.17785): transformer for multi-agent tracking (ball inference +
+   classification). Different base; needs a GPU and a retrain per fold.
+4. Kim et al. 2023 (arXiv 2306.08206): Set Transformer + hierarchical Bi-LSTM ball tracking
+   from player positions only (the missing ball, 41% of graded frames).
+5. Domain-adversarial training (Ganin et al., arXiv 1505.07818): learn features that can't tell
+   the bench from the real match (the adversarial gap of F3).
+Rule check for D: RULES.md allows "any method"; labels are algorithmic; trained on DFL only
+(Bassek et al. 2025, CC BY 4.0, as before); no new source.
+Setup: change model retrained on the F5 bench, on v1 labels (the baseline's label version),
+`MTAH_CHANGE_DIR=models_exp/changes_f`. Evidence = the baseline in models/. Switch fixed at 30
+(the baseline's). Grid beta in {0, 1, 2, 4, 8}; beta = the middle of the flat top of the bench
+mean (Y_v2), and the best-of-5 optimism is reported. Bench (grade a) = Y_v2, Y_v1 reported.
+PFF, the real rate and the public window are reported only (grade b is reported, never decides).
 - [ ] 1: research list; D on the clean baseline at the round-8 switch; audit; grade (subagent)
 - [ ] 2: a different base; grade
 - [ ] stop at first GOOD grade from iteration 2 on, or after 5; summary

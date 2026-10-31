@@ -5,7 +5,7 @@
     uv run python scripts/eval_changes.py real --beta B --switch S     # aggregates only
 
 Bench: 7 DFL matches x 3 degrader seeds, held-out evidence and change models, paired per match
-against beta 0 at switch 20 (the submission).
+against beta 0 at the first switch.
 """
 
 import argparse
@@ -86,6 +86,6 @@ if __name__ == "__main__":
     if a.where == "bench":
         run(["dfl"], [0, 1, 2], a.betas, a.switches, a.out)
     elif a.where == "pff":
-        run(["pff"], [0], (0.0, a.beta), (20.0, a.switch))
+        run(["pff"], [0], (0.0, a.beta), (a.switch,), a.out)
     else:
         real(a.beta, a.switch)
