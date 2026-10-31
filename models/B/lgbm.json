@@ -24,6 +24,7 @@
  "with_pff": false,
  "with_metrica": false,
  "self_train": 0.0,
+ "self_train_mode": "control",
  "dead_mix": true,
  "params": {
   "objective": "multiclass",

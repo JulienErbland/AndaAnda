@@ -43,12 +43,11 @@ CLASS_OF = {H: 0, A: 1, D: 2}
 
 @dataclass(frozen=True)
 class Params:
-    # switch: chosen on the benches, not on the public window's rate (17 possessions: its 95%
-    # interval is 2.5-6.8 changes per live minute, only a range check). For models/ensemble.json
-    # (Oct 27): PFF evaluation-only bench peaks at 20-30 (0.514), the DFL bench is within 0.01 of
-    # its peak and its predicted rate equals its true one (4.35 vs 4.38); real rate 3.45.
+    # switch: chosen on the DFL bench only (round 9, Oct 31): the middle of its flat 30-40 for
+    # models/ensemble.json (R + B1, 50/50). PFF and the public window are reported only; the real
+    # rate (3.44) is a range check against 3.2-7.6 changes per live minute (docs/results.md).
     weight: float = 1.0           # lambda: per-frame log-probability weight
-    switch: float = 20.0
+    switch: float = 30.0
     stop: float = 40.0
     restart: float = 40.0
     # Cheaper switch into a team within touch_window_s of one of its detected touches

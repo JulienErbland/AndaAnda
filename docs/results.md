@@ -976,7 +976,9 @@ which +0.016 is the F5 bench change (same models). PFF 0.522 vs 0.537: −0.015,
 and its interval entirely below 0. Both adopted changes lose on PFF (50/50 −0.008, v1 −0.009 at 50/50).
 PFF's labels are PFF's own definition (live at the kick, its own possession dating), so this is
 either a definition mismatch or real overfitting to the hackathon-style rule. With PFF reported
-only, the bench can't tell which. Waiting for Julien.
+only, the bench can't tell which. **Julien accepted K1h as the baseline (Oct 31), with the PFF drop
+as a caveat.** Installed in models/ (switch 30); `possession.submit` is byte-identical over two
+runs and the validator passes; real rate 3.44, public 8/17 (reported only).
 
 **Learning curve (K1h, switch 30, `scripts/learning_curve.sh`, `--train-k`).** Both members fit on
 k DFL matches. Each held-out model uses the k matches after its own, cyclically. k = 6 is K1h's

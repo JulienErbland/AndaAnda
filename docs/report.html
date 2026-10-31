@@ -179,9 +179,9 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   <h2>Where we stand</h2>
   <div class="stats">
     <div class="stat"><span class="k">Best method</span><span class="v">M2 ensemble</span><span class="d">two LightGBM evidence models + Viterbi decoder</span></div>
-    <div class="stat"><span class="k">Bench spellF1 (fixed bench)</span><span class="v">0.725</span><span class="d">bench corrected Oct 28 (moving dead ball, real ball-gap split). PFF (eval only): 0.537 (Oct 27: 0.514)</span></div>
-    <div class="stat"><span class="k">Public window spellF1</span><span class="v">0.622</span><span class="d">17 possessions: a sanity check, not a target</span></div>
-    <div class="stat"><span class="k">Real possessions / live min</span><span class="v">3.69</span><span class="d">public labels: 4.25 (17 possessions: 2.5-6.8)</span></div>
+    <div class="stat"><span class="k">Bench spellF1 (F5 bench)</span><span class="v">0.759</span><span class="d">R + B1 50/50, switch 30 (Oct 31); the Oct 28 submission scores 0.741 on this bench. PFF (reported only): 0.522 (Oct 28: 0.537)</span></div>
+    <div class="stat"><span class="k">Public window spellF1</span><span class="v">0.496</span><span class="d">17 possessions: reported only, never used to choose (Oct 28: 0.622)</span></div>
+    <div class="stat"><span class="k">Real possessions / live min</span><span class="v">3.44</span><span class="d">range 3.2-7.6, from the DFL and PFF labels</span></div>
   </div>
   <ul>
     <li><strong>The method.</strong> A gradient-boosted model reads 42 context features (team shape,

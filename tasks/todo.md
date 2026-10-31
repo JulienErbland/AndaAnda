@@ -634,9 +634,11 @@ reported only (asked Julien).
       -> round 9: K1 (v1 labels) wins the minimax (regret 0.0008 vs 0.0172); kick convention wins
       (0.0124 vs 0.0395, no tie); 50/50 adopted (+0.019, 7/7)
 - [x] change rate per live minute on every relabelled DFL / PFF match (range now 3.2-7.6)
-- [ ] combined retrain -> must land within ±0.01 of 0.725 / 0.537, else stop and report
+- [x] combined retrain -> must land within ±0.01 of 0.725 / 0.537, else stop and report
       (round 9b: K1h = R_f + B1_f 50/50 -> bench 0.759 (+0.034, +0.016 of it the F5 bench), PFF
       0.522 (-0.015) -> FAILS, stopped and reported to Julien Oct 31)
+      -> Julien: accept it (option 1). BASELINE = R_f + B1_f 50/50, switch 30, in models/: bench
+         0.759 (Y_v2) / 0.773 (Y_v1), PFF 0.522, real 3.44; reproducible, validator OK
 - [x] PFF decisions log + Bench caveats sections in results.md
 ### Decision rules for L1 and the convention, written Oct 30 22:35 BEFORE any scoring
 Neither PFF (terms) nor the public window (hard rule 2) may choose a label definition, and each

@@ -53,12 +53,13 @@ ATD ──► features ──► 2 LightGBM models ──► geometric mean ─�
 2. **Two evidence models** (LightGBM multiclass, 300 rounds, every 3rd frame, home/away swap
    augmentation, deterministic), trained on the 7 DFL matches degraded twice (dead ball moving /
    parked, so neither tracker's dead-ball habit becomes a shortcut):
-   - `models/R` × 0.75: DFL's labels, context + touches + restarts (54 features);
-   - `models/B` × 0.25: hackathon-style labels, context + touches (48 features).
+   - `models/R` × 0.5: DFL's labels, context + touches + restarts (54 features);
+   - `models/B` × 0.5: hackathon-style labels dated at the control start (v1), context + touches
+     (48 features). Weights and label version decided on the DFL bench (round 9, Oct 31).
    B is better calibrated on the bench but changes possession too rarely on the real match; R the
    reverse. The mix (`models/ensemble.json`) beats both on the DFL bench and on PFF.
-3. **Decoder** (`hmm.py`): 3-state Viterbi per half on the log-probabilities; penalties switch 20
-   (H <-> A, chosen on the benches), stop 40, restart 40. Turns flickering evidence into possessions.
+3. **Decoder** (`hmm.py`): 3-state Viterbi per half on the log-probabilities; penalties switch 30
+   (H <-> A, chosen on the DFL bench), stop 40, restart 40. Turns flickering evidence into possessions.
 4. **Kick-off rule**: a half that is not graded from its kick-off is dead until it (the real
    second half is graded ~2 min early, all `D`).
 5. **Submission** (`submit.py`): one command from the raw bundle, organisers' validator,
@@ -66,16 +67,19 @@ ATD ──► features ──► 2 LightGBM models ──► geometric mean ─�
 
 ## Where it stands
 
-| | bench spellF1 (hackathon-style labels) | PFF spellF1 (eval only) | real rate (range 2.5-6.8) | public window |
+| | bench spellF1 (hackathon-style labels) | PFF spellF1 (eval only) | real rate (range 3.2-7.6) | public window |
 |---|---|---|---|---|
 | organisers' baseline (smooth50) | 0.275 | – | 8.29 | 0.326 |
 | M2 single model (until Oct 27) | 0.611 | 0.479 | 4.28 | 0.622 |
 | R + B ensemble, switch 20 (Oct 27; old bench) | 0.724 | 0.514 | 3.45 | 0.622 |
 | R + B dead-ball-mixed, switch 20 (corrected bench) | 0.683 | 0.509 | 3.56 | 0.622 |
-| **R + B retrained on the recalibrated gaps, switch 20 (submission)** | **0.725** | **0.537** | **3.69** | **0.622** |
+| R + B retrained on the recalibrated gaps, switch 20 (until Oct 31) | 0.725 | 0.537 | 3.69 | 0.622 |
+| *F5 bench (Oct 31): dead-ball knobs from the model's own calls; same models score 0.741* | | | | |
+| **R + B1 (v1 labels), 50/50, switch 30 (submission, iteration-0 baseline)** | **0.759** | **0.522** | **3.44** | **0.496** |
 
 The bench was corrected twice on Oct 28 (moving dead ball; ball gaps split live 7% / dead 80%),
-so its numbers are not comparable across those rows; PFF is unchanged throughout.
+so its numbers are not comparable across those rows; PFF is unchanged throughout. The baseline
+loses 0.015 on PFF (PFF's own label definition; reported only, accepted by Julien Oct 31).
 
 Main open problem: hand-overs are much harder to see on the real tracking than on the bench
 (10 of the 17 public possessions found). Fixed Oct 28: the ATD's ball "speed" was missing on 92%
