@@ -54,9 +54,10 @@ def rows(match, label, gid, mask=None, step=STEP):
 
 
 def auc(y, s):
-    order = np.argsort(s, kind="stable")
-    r = np.empty(len(s))
-    r[order] = np.arange(1, len(s) + 1)
+    """Mann-Whitney AUC with average ranks for ties (binary features are mostly ties; plain
+    ranks in row order, bench first, inflated their AUC towards 1 until Oct 31)."""
+    u, inv, cnt = np.unique(s, return_inverse=True, return_counts=True)
+    r = (np.cumsum(cnt) - (cnt - 1) / 2.0)[inv]
     n1 = y.sum()
     return (r[y == 1].sum() - n1 * (n1 + 1) / 2) / (n1 * (len(y) - n1))
 

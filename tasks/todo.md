@@ -678,6 +678,7 @@ Setup: change model retrained on the F5 bench, on v1 labels (the baseline's labe
 (the baseline's). Grid beta in {0, 1, 2, 4, 8}; beta = the middle of the flat top of the bench
 mean (Y_v2), and the best-of-5 optimism is reported. Bench (grade a) = Y_v2, Y_v1 reported.
 PFF, the real rate and the public window are reported only (grade b is reported, never decides).
-- [ ] 1: research list; D on the clean baseline at the round-8 switch; audit; grade (subagent)
+- [x] 1: research list; D on the clean baseline at the round-8 switch; audit; grade (subagent)
+      -> FAIL (bench −0.0008 at beta 1, 3/7; grader FAIL, mine PARTIAL); not adopted
 - [ ] 2: a different base; grade
 - [ ] stop at first GOOD grade from iteration 2 on, or after 5; summary

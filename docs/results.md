@@ -994,6 +994,43 @@ training matches (k = 12: ~0.770-0.775). PFF fits ~+0.017 per log unit over all 
 ~+0.005 over k = 3-6 (k = 12: ~0.525-0.536). The bench is still rising and PFF is flattening. More
 matches with the same labels would help the bench more than PFF.
 
+### Iteration 1: D (learned switch costs) on the baseline (Oct 31): FAIL, not adopted
+
+Plan written before scoring (`tasks/todo.md`). The change model was retrained on the F5 bench with v1
+labels (`models_exp/changes_f`); evidence = the baseline; switch 30; beta in {0, 1, 2, 4, 8};
+`scripts/iter1_D.sh`. Numbers: DFL bench (decides), PFF / real rate / public reported only.
+
+| beta | bench Y_v2 (vs 0.7588) | Y_v1 (reported; D's own labels) | PFF (vs 0.5221, bootstrap 95%) | real rate |
+|---|---|---|---|---|
+| 1 (selected: middle of the flat 0-2) | 0.7580, −0.0008, 3/7 | +0.0024, 5/7 | +0.0001 [−0.0005, +0.0008] | 3.46 |
+| 2 | 0.7595, +0.0007, 4/7 | +0.0060, 7/7 | −0.0008 [−0.0018, +0.0003] | 3.46 |
+| 4 | 0.7573, −0.0015, 2/7 | +0.0086, 6/7 | −0.0025 [−0.0038, −0.0012] | 3.52 |
+| 8 | 0.7498, −0.0091, 0/7 | +0.0059, 6/7 | −0.0071 [−0.0093, −0.0050] | 3.61 |
+
+Grades: mine PARTIAL (a fails, b, c, d pass); separate grader FAIL (a fails; d not shown for a D
+submission, which isn't wired in). Lower grade = **FAIL**. The old-bench +0.004 was measured
+against the Oct 28 submission's evidence at switch 30 on the pre-F5 bench. With the retrained 50/50
+evidence it is gone on Y_v2, and it survives only on the change model's own labels (circular).
+D doesn't fix the undercount (bench rate 3.99 vs true 4.38).
+
+### Bench audit (Oct 31, step 2)
+
+- **Match spread**: the baseline's per-match spellF1 on Y_v2 spans 0.709-0.797 (switch 30), so
+  the noise between matches is 10x the +0.005 adoption bar. Hence the 6/7 rule.
+- **Adversarial validation** (`scripts/domain_shift.py`, the real side = predicted changes or the
+  whole match, never the public window): the classifier separates bench from real (AUC 0.995 overall,
+  0.917 near changes, 0.79 without the top 6). The top features are team shape (home_back / away_back,
+  spread): one real match vs 7 DFL ones, so team style is expected to differ. Ball visibility near
+  changes is now matched: 96.7% bench (near held-out predicted changes) / 94.5% (true) vs 97.9%
+  real (`scripts/audit_near.py`).
+- **Bug fixed in the audit tool**: `domain_shift.auc` didn't average tied ranks, so binary
+  features (ball_vis, team ids) showed univariate AUCs near 1. The classifier AUCs were barely
+  affected; F3's findings stand, since they came from directly measured shares (table in F3).
+- **PFF**: scored on PFF's own labels (dead from OUT to the restart only, live at the kick); the
+  hackathon-style rule on PFF is unusable (2.64 changes per live minute, ball missing on ~35%).
+- **Possessions**: real 185 (mean 17.4 s); bench rate 3.97 vs true 4.38 (−9%): the decoder
+  undercounts changes.
+
 ## PFF decisions log
 
 PFF Terms of Use (pff.com/terms, updated Oct 12, 2026), checked Oct 30: §1.2 "PFF grants you the
