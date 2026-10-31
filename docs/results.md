@@ -978,6 +978,20 @@ PFF's labels are PFF's own definition (live at the kick, its own possession dati
 either a definition mismatch or real overfitting to the hackathon-style rule. With PFF reported
 only, the bench can't tell which. Waiting for Julien.
 
+**Learning curve (K1h, switch 30, `scripts/learning_curve.sh`, `--train-k`).** Both members fit on
+k DFL matches. Each held-out model uses the k matches after its own, cyclically. k = 6 is K1h's
+own held-out models; k = 7 is not possible held-out.
+
+| k | 1 | 2 | 3 | 5 | 6 |
+|---|---|---|---|---|---|
+| bench (Y_v2) | 0.7228 | 0.7463 | 0.7489 | 0.7581 | 0.7588 |
+| PFF (reported only) | 0.4932 | 0.5035 | 0.5187 | 0.5210 | 0.5221 |
+
+EXTRAPOLATION (fit a + b log k, not measured): the bench gains ~+0.015-0.019 per doubling of
+training matches (k = 12: ~0.770-0.775). PFF fits ~+0.017 per log unit over all points, but only
+~+0.005 over k = 3-6 (k = 12: ~0.525-0.536). The bench is still rising and PFF is flattening. More
+matches with the same labels would help the bench more than PFF.
+
 ## PFF decisions log
 
 PFF Terms of Use (pff.com/terms, updated Oct 12, 2026), checked Oct 30: §1.2 "PFF grants you the
