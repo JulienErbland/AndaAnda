@@ -1013,6 +1013,29 @@ against the Oct 28 submission's evidence at switch 30 on the pre-F5 bench. With 
 evidence it is gone on Y_v2, and it survives only on the change model's own labels (circular).
 D doesn't fix the undercount (bench rate 3.99 vs true 4.38).
 
+### Iteration 2: temporal CNN evidence (Oct 31): FAIL, not adopted
+
+`possession/tcn.py`: a dilated 1-D CNN (Bai et al. 2018, arxiv.org/abs/1803.01271) over the
+per-frame feature sequence at 5 fps (~25 s receptive field), PyTorch 2.15 CPU, a fixed budget (1500
+steps), seeded and deterministic (same seed -> identical weights). Two members mirroring the
+baseline (T_R on DFL labels, T_B1 on v1), 50/50, same decoder; `scripts/iter2_tcn.sh`. Plan in
+`tasks/todo.md`, written before scoring.
+
+| switch | bench Y_v2 (baseline 0.7588) | Y_v1 (reported) | PFF vs 0.5221 (reported, 95%) | real rate | public (reported) |
+|---|---|---|---|---|---|
+| 20 | 0.7471 (−0.012, 1/7) | 0.7616 | −0.0046 [−0.011, +0.002] | 3.87 | 11/17 |
+| 30 | 0.7544 (−0.004, 3/7) | 0.7686 | −0.0052 [−0.011, +0.001] | 3.77 | 11/17 |
+| 40 | 0.7565 (−0.002, 3/7) | 0.7705 | −0.0063 [−0.012, −0.001] | 3.70 | 11/17 |
+| 60 (grid top) | 0.7608 (+0.002, 4/7) | 0.7750 (+0.002, 4/7) | −0.0093 [−0.015, −0.003] | 3.46 | 11/17 |
+
+Grades: mine FAIL, the separate grader's FAIL (a: +0.002, 4/7; b: interval entirely below −0.003
+at the selected switch 60; d: not wired into the submission). The curve still rises at 60 (grid
+too narrow), but PFF falls as the switch rises. The CNN alone matches LightGBM on the bench
+(per-match differences of ±0.02 both ways), so it's a different model with the same accuracy.
+Reported only: **the 4-member mix** (T_R, T_B1, models/R, models/B, 1/4 each, fixed before scoring):
+0.7719 / 0.7723 / 0.7763 / 0.7743 at switch 20 / 30 / 40 / 60, +0.0135 at 30 (5/7); real rate 3.43
+at 30. Taken to iteration 3 with a fresh-seed confirmation, since these numbers have been seen.
+
 ### Bench audit (Oct 31, step 2)
 
 - **Match spread**: the baseline's per-match spellF1 on Y_v2 spans 0.709-0.797 (switch 30), so

@@ -214,6 +214,9 @@ def _model_for(match, model_dir=None):
 
 def _single(match, model_dir, cache):
     """P(H, A, D) of one trained model dir; feature matrices shared through `cache`."""
+    if os.path.isfile(os.path.join(model_dir, "tcn.json")):   # iteration 2's temporal CNN
+        from . import tcn
+        return tcn.predict(match, model_dir, cache)
     fs = _meta(model_dir).get("feature_set", "base")
     if fs not in cache:
         cache[fs] = context.matrix(frame_features(match, fs))[0]

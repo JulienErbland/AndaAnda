@@ -680,7 +680,8 @@ mean (Y_v2), and the best-of-5 optimism is reported. Bench (grade a) = Y_v2, Y_v
 PFF, the real rate and the public window are reported only (grade b is reported, never decides).
 - [x] 1: research list; D on the clean baseline at the round-8 switch; audit; grade (subagent)
       -> FAIL (bench −0.0008 at beta 1, 3/7; grader FAIL, mine PARTIAL); not adopted
-- [ ] 2: a different base; grade
+- [x] 2: a different base; grade -> temporal CNN: FAIL (bench +0.002 at 60, 4/7; PFF
+      [−0.015, −0.003]); not adopted
 ### Iteration 2 plan, written Oct 31 BEFORE scoring
 Candidates for a very different base (CPU only here: 8 cores, no GPU):
 1. **Temporal CNN evidence** (`possession/tcn.py`): a dilated 1-D CNN (Bai et al. 2018, "An
@@ -702,4 +703,13 @@ the middle of the flat top on Y_v2; best-of-4 optimism reported. Decided on Y_v2
 PFF, the real rate and the public window are reported only. TCN + LightGBM mixes: reported only
 (a candidate for a later iteration, not adopted here).
 
+### Iteration 3 plan, written Oct 31 12:20 (after the 4-member mix's seed 0-2 numbers were SEEN)
+Candidate: TL = T_R + T_B1 + models/R + models/B, 1/4 each (weights fixed before any scoring,
+in scripts/iter2_tcn.sh). Its seed 0-2 bench curve is known (iteration 2, reported only), so it
+can't be graded on those seeds. Confirmation on FRESH degrader seeds 3, 4, 5 (never scored for any
+model): baseline (models/, switch 30) vs TL at switch 40 (the best of the seen curve; the choice
+is disclosed and the optimism is measured by the fresh seeds). The rubric applies unchanged on
+the fresh seeds (Y_v2). PFF, the real rate and the public window are reported only. (d): TL is wired
+into the submission with MTAH_MODEL_DIR=models_exp/ens_TL, built twice (cmp) and validated.
+Ceiling: the same 7 matches; fresh seeds re-draw only the degradation, not the football.
 - [ ] stop at first GOOD grade from iteration 2 on, or after 5; summary

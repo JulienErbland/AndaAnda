@@ -109,7 +109,7 @@ def _sweep_job(args):
     clean = Match.load(path)
     view = load_degraded(path, "hackathon", 0).without_labels()
     cache = {}
-    logp = sum(w * np.log(np.clip(learned._single(view, os.path.join(ROOT, BASES.get(b, "models_exp/" + b)), cache), 1e-6, 1.0))
+    logp = sum(w * np.log(np.clip(learned._single(view, os.path.join(ROOT, BASES.get(b, b if "/" in b else "models_exp/" + b)), cache), 1e-6, 1.0))
                for b, w in zip(bases, weights))
     p = np.exp(logp / sum(weights))
     p /= p.sum(1, keepdims=True)
@@ -135,5 +135,20 @@ def sweep(a, b, wa, *switches):
         print("switch {:>4g}: PFF spellF1 {:.4f}  rate {:.2f}".format(sw, res[:, k, 1].mean(), res[:, k, 2].mean()))
 
 
+def mix(spec, *switches):
+    """Any number of members, spec "dirA:wA,dirB:wB,..." (dirs under models_exp/ or with a "/")."""
+    from bench.__main__ import match_paths
+    bases, weights = zip(*((b, float(w)) for b, w in (x.split(":") for x in spec.split(","))))
+    switches = [float(s) for s in switches]
+    jobs = [(p, bases, weights, switches) for p in match_paths(["pff"])]
+    with Pool(4) as pool:
+        res = np.array(list(pool.imap(_sweep_job, jobs)))
+    out = os.path.join(REPORTS_DIR, "compare", "pff_mix_{}.json".format("_".join(b.replace("/", "-") for b in bases)))
+    with open(out, "w") as f:
+        json.dump(res.tolist(), f)
+    for k, sw in enumerate(switches):
+        print("switch {:>4g}: PFF spellF1 {:.4f}  rate {:.2f}".format(sw, res[:, k, 1].mean(), res[:, k, 2].mean()))
+
+
 if __name__ == "__main__":
-    {"run": run, "report": report, "sweep": sweep}[sys.argv[1]](*sys.argv[2:])
+    {"run": run, "report": report, "sweep": sweep, "mix": mix}[sys.argv[1]](*sys.argv[2:])
