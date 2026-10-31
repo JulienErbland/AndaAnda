@@ -714,3 +714,10 @@ into the submission with MTAH_MODEL_DIR=models_exp/ens_TL, built twice (cmp) and
 Ceiling: the same 7 matches; fresh seeds re-draw only the degradation, not the football.
 - [x] 3: CNN + LightGBM mix on fresh seeds -> GOOD (mine and the grader's); ADOPTED
 - [x] stop at first GOOD grade from iteration 2 on, or after 5; summary
+
+### Switch 30 vs 40 for the submission on more seeds (Julien, Oct 31), rule written BEFORE scoring
+Fresh degrader seeds 6-11 (never scored), models/ (the 4-way mix), Y_v2, switches 30 and 40.
+Switch 30 replaces 40 only if it clears the adoption bar (>= +0.005 and better on >= 6/7);
+otherwise 40 stays (status quo). PFF and the real rate are reported only (known: 30 = 0.5305 /
+3.43, 40 = 0.5287 / 3.32).
+-> seeds 6-11: 30 − 40 = −0.0006, 3/7; 12 seeds −0.0011, 1/7. Tie: 40 stays.

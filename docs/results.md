@@ -1059,6 +1059,12 @@ rate 3.32 is close to the 3.2 floor and the bench undercounts (3.87 vs 4.38); 6/
 −0.001 match; torch results were checked on one machine (4 threads pinned in `tcn.py`; another
 CPU could differ in the last bits).
 
+**Switch 30 vs 40 on more seeds (Julien's request; rule written before scoring: 30 replaces
+40 only with >= +0.005 and >= 6/7).** The submission model on fresh seeds 6-11: switch 30 0.7711,
+40 0.7717; 30 − 40 = −0.0006 ± 0.0018, better on 3/7. Seeds 3-5: +0.0010, 4/7. Over all 12 seeds:
+−0.0011, 1/7. A tie: the bench doesn't separate them, so **40 stays**. Reported only: switch 30
+gives a real rate of 3.43 vs 3.32 (further from the 3.2 floor) and PFF 0.5305 vs 0.5287.
+
 ### Bench audit (Oct 31, step 2)
 
 - **Match spread**: the baseline's per-match spellF1 on Y_v2 spans 0.709-0.797 (switch 30), so
