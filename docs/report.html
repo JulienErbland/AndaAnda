@@ -1111,7 +1111,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
       <tr><td><code>possession/selftrain.py</code>, <code>possession/tags.py</code>, <code>possession/snap.py</code></td><td>Self-training, Smart Tagging reader / soft evidence, snapping changes to controls (evaluated, not adopted)</td></tr>
       <tr><td><code>possession/touches.py</code></td><td>Direction 2: control / deflection / contact detector and its features</td></tr>
       <tr><td><code>possession/restarts.py</code></td><td>Direction 1: restart detector (when, kind, team), kick-off line-ups, "dead until kick-off" rule</td></tr>
-      <tr><td><code>possession/video.py</code>, <code>possession/ballpatch.py</code></td><td>Ball detection in the tactical video: classical blobs / learned patches (evaluated, not adopted)</td></tr>
+      <tr><td><code>possession/video.py</code></td><td>Ball detection in the tactical video: classical blobs (evaluated, not adopted; the learned patch detector, trained on the video, was removed Nov 3)</td></tr>
       <tr><td><code>possession/gaps.py</code></td><td>Direction 3 ball-gap features (evaluated, unused)</td></tr>
       <tr><td><code>possession/carrier.py</code></td><td>Player-level carrier model (open data, leave-one-match-out)</td></tr>
       <tr><td><code>possession/path.py</code></td><td>Path decoder: ball from player to player (evaluated, not adopted)</td></tr>

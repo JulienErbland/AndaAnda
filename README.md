@@ -22,8 +22,9 @@ label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1
   - `touches.py`: touch detector (control / deflection / contact) feeding M2.
   - `restarts.py`: restart detector (when, kind, team) and kick-off line-ups; a half is dead
     until its kick-off (the real second half is graded ~2 min before it).
-  - `video.py`, `ballpatch.py`: ball detection in the tactical video (classical / learned
-    patches); evaluated, not adopted.
+  - `video.py`: classical ball detection in the tactical video (video as input, nothing
+    trained on it); evaluated, not adopted. A learned patch detector trained on the video was
+    removed Nov 3 (organisers' rules clarification: no training on the provided video).
 
 Bench numbers on the current yardstick (DFL relabelled with the hackathon-style rule, realistic
 degrader, held-out, 3 seeds), plus PFF World Cup 2022 as an evaluation-only bench (64 matches,

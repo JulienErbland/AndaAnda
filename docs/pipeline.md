@@ -95,6 +95,30 @@ Tried and dropped (all in `results.md`): semi-Markov decoder, ball-gap features,
 carrier model and path decoder, snapping changes to controls, Smart Tagging, varied degradation,
 cheaper switches at touches, classical and learned ball detection in the video.
 
+## Rules compliance (organisers' clarification, Nov 2026)
+
+- **Input of the submission**: the tactical ATD (automatic tracking) only. No video, homography,
+  Smart Tagging or ground truth is read by `possession.submit`.
+- **Training**: every model (`models/R`, `B`, `TR`, `TB1`) is trained only on external data, the
+  7 open DFL matches (CC-BY 4.0). PFF World Cup 2022 is used for evaluation only.
+- **Tuning**: decoder penalties (switch 40, stop 40, restart 40), ensemble weights and every
+  adoption decision were chosen on the DFL bench (held-out by match) and confirmed on PFF. No
+  parameter is fitted on the ground truth or on the video.
+- **Bench realism**: the degrader that makes DFL look like the hackathon tracking takes its
+  settings from aggregate statistics of the provided tracking (ball-gap lengths, jitter, ball
+  smoothness, tracklet counts) and, for the dead-ball motion and the dead / live missing-ball
+  split, from our own model's decoded calls on the match (public window excluded). No ground
+  truth and no video enter it; no frame or label of the match is used as a training target.
+- **Public 5-minute window**: inspected to understand what counts as possession (e.g. changes
+  are dated from the new team's first touch, not from the start of control) and used for
+  automatic sanity checks (alignment, format, possession rate). Early experiments (before Oct 27)
+  picked a switch value by the public window's possession rate; that practice was dropped and the
+  current settings come from the DFL bench only.
+- **Video**: classical ball detection on the video was tried as an input and not adopted. A
+  learned patch detector trained on the video was also tried, not adopted, and removed (code and
+  model) on Nov 3. Our output was never checked against the video.
+- **No hand labels** or other human-made data on the provided game.
+
 ## Reproduce
 
 ```bash
