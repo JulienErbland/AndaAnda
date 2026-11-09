@@ -1,7 +1,29 @@
 # More than a Hack 2027: ball possession
 
-Our solution to [More than a Hack 2027, Phase 1](../more-than-a-hack-2027/CHALLENGE.md): one
-label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1.
+Team **AndaAnda**'s solution to [More than a Hack 2027, Phase 1](https://github.com/metrica-sports/more-than-a-hack-2027/blob/main/CHALLENGE.md):
+one label per frame of the tactical video (`H` / `A` / `D` / `X`), ranked on spellF1.
+Technical document: [`docs/AndaAnda.md`](docs/AndaAnda.md).
+
+## Reproduce the submission
+
+Needs Linux or macOS, [uv](https://docs.astral.sh/uv/) (tested with 0.11), Python 3.12 (uv
+installs it), the organisers' starter repo and the match data bundle. CPU only, ~30 s.
+
+```bash
+git clone https://github.com/JulienErbland/AndaAnda.git
+git clone https://github.com/metrica-sports/more-than-a-hack-2027.git   # must sit next to AndaAnda
+cd AndaAnda
+uv sync                                    # exact versions from uv.lock (torch CPU wheels)
+# put the data bundle in official_data/ (official_data/tactical/BAR-ATH_tactical_atd.{txt,xml}, ...),
+# or point MTAH_DATA_DIR at it; MTAH_STARTER_DIR overrides the starter repo location
+uv run python -m possession.submit         # -> submissions/AndaAnda.csv, then the organisers' validator
+```
+
+Only the tactical tracking is read (`BAR-ATH_tactical_atd.txt` and its `_atd.xml` metadata). The trained models are committed
+in `models/`, so no training is needed; the run is deterministic and byte-identical across runs.
+Retraining from public data is described in `docs/AndaAnda.md` (section Reproduction).
+
+## Repository map
 
 - `docs/pipeline.md`: one-page summary of the data, the bench and the method.
 - `docs/problem.md`: the problem, the metric's consequences and the main challenges. **Read first.**
