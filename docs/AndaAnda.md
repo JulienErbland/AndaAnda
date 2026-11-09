@@ -48,8 +48,8 @@ features. They are computed offline, so they can use past and future context:
 
 - *team context* (38): each team's speed and shape in its attacking direction, slowing down,
   last / next seen ball (position, speed, distance to a line), last / next team near the ball;
-- *touches* (10): a touch detector that tells **control** (a player moving *with* the ball for
-  >= 0.4 s within 1.5 m) from **deflection** (a sharp turn next to a player, no control after) and
+- *touches* (10): a touch detector that tells **control** (a player moving *with* the ball for at
+  least 0.4 s within 1.5 m) from **deflection** (a sharp turn next to a player, no control after) and
   **contact**, with the last / next team and the time since / until;
 - *restarts* (6): a restart detector (still ball >= 1.5 s, then kicked; the kind comes from where
   it is taken, the team from the taker; kick-off line-ups are detected without the ball).
@@ -194,9 +194,9 @@ visible).
 - **One label definition is a guess.** Whether a restart is `D` until the kick or until the first
   reception (~1–1.5 s per restart) cannot be settled without the ground truth. We followed DFL.
 - **With more time:**
-  - a deep ball detector in the tactical video to fill ball gaps;
-  - more training matches from the same competition (team-shape shift);
-  - a decoder that sees short possessions better.
+    - a deep ball detector in the tactical video to fill ball gaps;
+    - more training matches from the same competition (team-shape shift);
+    - a decoder that sees short possessions better.
 
 ## 9. Reproduction
 
@@ -205,7 +205,7 @@ git clone https://github.com/JulienErbland/AndaAnda.git
 git clone https://github.com/metrica-sports/more-than-a-hack-2027.git   # next to AndaAnda
 cd AndaAnda && uv sync                           # Python 3.12, exact versions from uv.lock
 # data bundle in official_data/ (or MTAH_DATA_DIR=...)
-uv run python -m possession.submit               # -> submissions/AndaAnda.csv + organisers' validator
+uv run python -m possession.submit               # -> submissions/AndaAnda.csv, validated
 ```
 
 The trained models are committed. Prediction is deterministic: LightGBM in deterministic mode,
@@ -217,8 +217,10 @@ Retraining the four models from public data (optional; downloads DFL, ~200 MB ke
 ```bash
 uv run python -m bench fetch
 uv run python -m bench relabel --date-at-control --tag v1        # hackathon-style labels
-MTAH_MODEL_DIR=models/R uv run python -m possession.learned train --features restart --draws 2 --dead-mix
-MTAH_DFL_LABELS=hackathon-v1 MTAH_MODEL_DIR=models/B uv run python -m possession.learned train --features touch --draws 2 --dead-mix
+MTAH_MODEL_DIR=models/R uv run python -m possession.learned train \
+    --features restart --draws 2 --dead-mix
+MTAH_DFL_LABELS=hackathon-v1 MTAH_MODEL_DIR=models/B uv run python -m possession.learned train \
+    --features touch --draws 2 --dead-mix
 MTAH_MODEL_DIR=models/TR uv run python -m possession.tcn --features restart
 MTAH_DFL_LABELS=hackathon-v1 MTAH_MODEL_DIR=models/TB1 uv run python -m possession.tcn
 ```
