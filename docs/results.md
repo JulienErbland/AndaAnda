@@ -1083,6 +1083,79 @@ gives a real rate of 3.43 vs 3.32 (further from the 3.2 floor) and PFF 0.5305 vs
 - **Possessions**: real 185 (mean 17.4 s); bench rate 3.97 vs true 4.38 (−9%): the decoder
   undercounts changes.
 
+### Restart convention checked on the public window's restarts (Nov 10): kick confirmed
+
+Round 9 chose "live at the kick" by minimax regret between DFL yardsticks, but DFL cannot say
+what the hackathon ground truth does. CHALLENGE.md names the public GT as the reference for what
+the labels mean, so the definition was measured there. `scripts/restart_convention.py`
+(aggregates only, model-free: the restart detector finds only 37 restarts in the whole real match,
+none next to these four, because the ball is mostly untracked in dead time). For each of the 4
+stoppages that end in the window, around the GT's first live frame s:
+
+| restart | ball seen in the 5 s before s | ball comes back into view | first >= 4 m/s | nearest player at s |
+|---|---|---|---|---|
+| 1 | 8% | 10 frames before s | 9 frames before s | 4.1 m |
+| 2 | 100% | (always seen) | 87 frames before s | 2.3 m |
+| 3 | 10% | 12 frames before s | 11 frames before s | 2.1 m |
+| 4 | 100% | (always seen) | 28 frames before s | 3.6 m |
+
+Where the ball was hidden (1, 3) it reappears already moving 10-12 frames before the GT goes
+live, as in Metrica's Sample Game 3 (ball back at the kick). On all four the nearest player at s
+is 2.1-4.1 m from the ball: nobody is receiving it at that frame (the reception rule needs a
+player within 1.5 m). The GT goes live about 0.4 s after the kick, far from DFL's first reception
+(median 31-50 frames). **The kick convention stays; no retrain.** Four restarts, so this is a
+check of the definition, not a fitted constant: nothing in the pipeline uses the 10-12 frames.
+Restarts 2 and 4 are not informative on the timing (the ball moves long before s).
+
+### Iteration 4: spell-balanced training weights (Nov 10): FAIL, not adopted
+
+Plan written before scoring (`tasks/todo.md`). spellF1 counts each possession once, but the
+per-frame loss gives a 1 s possession 1/20 of the weight of a 20 s one. `learned.spell_weights`
+(`MTAH_SPELL_WEIGHT=10`, off by default): frame weight = 10 s / length of its label run, clipped
+to [1, 8], in LightGBM and in the CNN loss; T0 and the cap fixed before scoring. Candidate SW =
+R_sw + B1_sw + T_R_sw + T_B1_sw, 1/4 each (`models_exp/ens_SW`, `scripts/iter4_spell.sh`).
+Seeds 0-2, Y_v2; PFF not run; real rate and public reported only.
+
+| switch | models/ | SW | SW − models/ (paired) | bench rate models/ / SW (true 4.38) | real rate models/ / SW | public models/ / SW (reported) |
+|---|---|---|---|---|---|---|
+| 30 | 0.7723 | 0.7715 | −0.0008 ± 0.0030, 3/7 | 4.05 / 4.27 | 3.43 / 3.74 | 0.480 / 0.652 |
+| 40 | 0.7763 | 0.7769 | +0.0005 ± 0.0039, 5/7 | 3.92 / 4.13 | 3.32 / 3.62 | 0.480 / 0.652 |
+| 60 | 0.7743 | 0.7773 | +0.0030 ± 0.0025, 5/7 | 3.76 / 3.89 | 3.19 / 3.50 | 0.480 / 0.652 |
+| 80 | 0.7646 | 0.7726 | +0.0080 ± 0.0030, 6/7 | 3.62 / 3.74 | 3.14 / 3.33 | 0.480 / 0.512 |
+
+Step 1 fails: SW's flat top is 40-60, and SW at 60 is +0.001 over models/ at 40 (bar +0.005). No
+fresh-seed step. The weights do what they were meant to (more changes; interception 28% -> 32%,
+duel_flurry 50% -> 67% on n = 6), but the extra changes are wrong as often as right
+(change_in_ball_gap 27% -> 23%, blackout_change 35% -> 30%, short_spell 7% both). The evidence
+does not separate short possessions from deflections better when it is told to care more.
+
+### Iteration 5: 8-member mix (Nov 10): FAIL, not adopted
+
+Plan written before scoring. M8 = the 4 members of models/ + the 4 `_sw` members, 1/8 each
+(`models_exp/ens_M8`), switch 40 unchanged. Seeds 0-2, Y_v2: 0.7767 vs 0.7763 (+0.0004 ± 0.0034,
+4/7); at 60: 0.7758 (+0.0015, 4/7). Reported only: bench rate 4.02, real rate 3.46, public 0.637.
+
+**Reading of iterations 4-5.** models/, SW and M8 sit within 0.001 of each other at 0.777 while
+their change rates differ (bench 3.92 / 4.13 / 4.02 at switch 40; real 3.32 / 3.62 / 3.46). The
+bench no longer separates candidates of this family, so reweighting and mixing are closed. By the
+written rule a tie keeps the status quo: the submission is unchanged. Among bench ties, SW has the
+bench change rate closest to the truth and the real rate furthest from the range floor, but
+preferring it would be a rule written after its public number (0.652 vs 0.480, about three
+possessions of 17) was seen; not taken.
+
+### SkillCorner open data as training data (Nov 10): licence checked, nothing built
+
+github.com/SkillCorner/opendata, read Nov 10. `LICENSE`: MIT (copyright 2020 SkillCorner), no
+clause against machine learning; the README asks for credit. Other games, public: allowed by
+RULES.md. 20 A-League 2024/25 matches (10 added Sept 8, 2026): broadcast tracking at 10 fps, a
+per-frame `possession` field (player and team), dynamic events, phases of play. Aggregates of one
+match: ball position on 73% of frames; 16 players per frame of which 9 detected (the others are
+extrapolated); possession home 22% / away 33% / none 45%; 343 team runs (about 6 per live minute)
+and 115 "none" runs (median 18 s, so mostly stoppages; no explicit dead-ball flag). Open
+questions before any training: 10 fps, extrapolated players against team-shape features, the
+provider's own label definition, and a degrader built for clean input. Proposed go / no-go: score
+the submission on them as a third evaluation-only bench first. Not started.
+
 ## PFF decisions log
 
 PFF Terms of Use (pff.com/terms, updated Oct 12, 2026), checked Oct 30: §1.2 "PFF grants you the
@@ -1117,7 +1190,8 @@ stays in every candidate since the bench saw no difference and removing it is a 
   position noise moves a resting ball.
 - **Label definition**: the bench scores a hackathon-style rule (control >= 0.4 s within 1.5 m,
   dated from the first touch) on DFL; the reception convention (dead until the first reception)
-  is a second yardstick. Neither can be checked against the hackathon GT without the public window.
+  is a second yardstick. The restart convention was checked on the public window's 4 restarts on
+  Nov 10 (kick, above); the possession-dating rule has not been checked that way.
 - **7 matches**: the unit is the match; a best-of-N switch on 7 matches is optimistic by roughly
   the spread of its neighbours.
 - **Range check** for the real rate: 3.2-7.6 changes per live minute, the min-max over the 7 DFL

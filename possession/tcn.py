@@ -83,21 +83,26 @@ def _fit(seqs, mean, std, seed):
     torch = _torch()
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
-    data = [(torch.from_numpy(_inputs(X_, mean, std)), torch.from_numpy(y)) for X_, y in seqs]
+    # w: learned.spell_weights over each sequence's label runs (all ones when MTAH_SPELL_WEIGHT is off)
+    data = [(torch.from_numpy(_inputs(X_, mean, std)), torch.from_numpy(y), torch.from_numpy(
+        learned.spell_weights(y).astype(np.float32) if learned.SPELL_T0 > 0 else np.ones(len(y), np.float32)))
+        for X_, y in seqs]
     net = _net(data[0][0].shape[1])
     opt = torch.optim.Adam(net.parameters(), lr=LR)
-    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=-1)
+    loss_fn = torch.nn.CrossEntropyLoss(ignore_index=-1, reduction="none")
     span = CROP * STRIDE
     net.train()
     for _ in range(STEPS):
-        xs, ys = [], []
+        xs, ys, ws = [], [], []
         for _ in range(BATCH):
-            Z, y = data[rng.integers(len(data))]
+            Z, y, w = data[rng.integers(len(data))]
             t0 = int(rng.integers(0, len(y) - span))
             xs.append(Z[t0:t0 + span:STRIDE].T)
             ys.append(y[t0:t0 + span:STRIDE])
+            ws.append(w[t0:t0 + span:STRIDE])
         opt.zero_grad()
-        loss = loss_fn(net(torch.stack(xs)), torch.stack(ys))
+        ys, ws = torch.stack(ys), torch.stack(ws) * (torch.stack(ys) >= 0)
+        loss = (loss_fn(net(torch.stack(xs)), ys) * ws).sum() / ws.sum()
         loss.backward()
         opt.step()
     net.eval()
@@ -133,6 +138,7 @@ def train(feature_set="restart", draws=2, dead_mix=True, workers=4):
         json.dump({"trained_on": names_sorted, "feature_set": feature_set, "draws": draws,
                    "dead_mix": dead_mix, "labels": os.environ.get("MTAH_DFL_LABELS", ""),
                    "net": [CH, BLOCKS, KERNEL, DROPOUT], "fit": [LR, BATCH, CROP, STEPS, SEED],
+                   "spell_weight": [learned.SPELL_T0, learned.SPELL_CAP],
                    "stride": STRIDE}, f, indent=1)
     print("full model done", flush=True)
     for held in names_sorted:

@@ -794,3 +794,75 @@ otherwise 40 stays (status quo). PFF and the real rate are reported only (known:
       `validate_submission.py` on the exact file; submit the Google Form before Nov 17.
 - [ ] Only if time before the freeze, one bench-chosen try at risk 1: the recall of short
       possessions. Adoption bar unchanged (>= +0.005, >= 6/7, rule written before scoring).
+
+---
+
+# Review and new levers (Nov 10)
+
+Reading of the state: the decoder and the model family have been swept (C, D, HSMM, touch switch,
+CNN, self-training: all flat). What is left is (1) what the models are asked to learn and
+(2) which label definition they learn. Two levers, in this order.
+
+## Iteration 4 plan: spell-balanced training weights, written Nov 10 BEFORE scoring
+Why: spellF1 counts each possession once, but the per-frame training loss gives a 1 s possession
+1/20 of the weight of a 20 s one. The known weak spot is exactly there (recall < 1 s: 2%,
+1-3 s: 32%; P(new team) peaks at a median 0.36 on missed short ones; bench rate 3.87 vs 4.38).
+Change: per-frame weight = 10 s / (length of the frame's label run), clipped to [1, 8]
+(`learned.spell_weights`, `MTAH_SPELL_WEIGHT=10`), in LightGBM and in the CNN loss. T0 = 10 s and
+cap 8 are fixed here, not tuned. Nothing else changes (features, labels, decoder, 1/4 mix).
+Rule check: RULES.md "any method"; trained on DFL only; no new data.
+Candidate: SW = R_sw + B1_sw + T_R_sw + T_B1_sw, 1/4 each (`models_exp/ens_SW`), `scripts/iter4_spell.sh`.
+- Step 1 (seen seeds 0-2, Y_v2): switch grid {30, 40, 60, 80} (the weights raise P(change), so
+  the best switch is expected to move up); pick the middle of the flat top. Go on only if SW at
+  that switch is >= +0.005 over models/ at 40 on these seeds.
+- Step 2 (decides): fresh degrader seeds 12-14 (never scored), SW at the step-1 switch vs models/
+  at 40. Adopt only with >= +0.005 and better on >= 6/7 matches, no scenario floor broken.
+- Reported only: bench rate vs 4.38, PFF, real rate (range 3.2-7.6), public window.
+- [x] train the 4 members, step 1 -> **FAIL, not adopted** (Nov 10, `reports/compare/iter4_*`).
+      Seeds 0-2, Y_v2, SW / models: switch 30 0.7715 / 0.7723, 40 0.7769 / 0.7763,
+      60 0.7773 / 0.7743, 80 0.7726 / 0.7646. Flat top 40-60; SW@60 vs models@40 = +0.001
+      (bar +0.005). The weights do what they were meant to (bench rate 4.13 vs 3.92 at 40, true
+      4.38; interception 28% -> 32%) but the extra changes are as often wrong as right
+      (change_in_ball_gap 27% -> 23%, short_spell 7% both). Reported only: real rate 3.62 at 40,
+      public 0.652 (vs 0.480; 17 possessions, decides nothing). No step 2.
+
+## Iteration 5 plan: 8-member mix, written Nov 10 23:40 BEFORE scoring
+The reweighted members score the same as the current ones but change possession more often, so
+their errors differ: the same argument that made the CNN + LightGBM mix work (iteration 3).
+Candidate M8 = the 4 members of models/ + the 4 `_sw` members, 1/8 each (`models_exp/ens_M8`),
+switch 40 (unchanged; 60 reported only). Step 1: seeds 0-2 vs models/ at 40 (already scored),
+go on only with >= +0.005. Step 2 (decides): fresh seeds 12-14, bar >= +0.005 and >= 6/7.
+- [x] step 1 -> **FAIL, not adopted** (`reports/compare/iter5_M8_v2.json`): M8@40 0.7767 vs
+      0.7763 (+0.0004, 4/7); @60 0.7758. Reported only: bench rate 4.02, real rate 3.46,
+      public 0.637.
+
+## Reading of iterations 4-5 (Nov 10)
+Three candidates (models/, SW, M8) sit within 0.001 of each other on the bench at 0.777 while
+their change rates differ (bench 3.92 / 4.13 / 4.02 at switch 40, true 4.38; real 3.32 / 3.62 /
+3.46). The bench no longer separates candidates in this family: more reweighting or mixing is
+not worth further runs. OPEN, Julien's call: a tie on the bench keeps the status quo by the
+written rule. The alternative argument (prefer, among bench ties, the candidate whose BENCH
+change rate is closest to the true one: SW@40) uses no public number, but it would be a rule
+written after the public numbers were seen (SW 0.652, M8 0.637 vs 0.480), so it must be
+disclosed as such if taken.
+
+## Lever 2: the restart convention (kick vs first reception): decide it as a definition
+Round 9 picked "kick" by minimax regret between DFL yardsticks. But the yardstick is not ours to
+choose: CHALLENGE.md says the public GT is the reference for what labels mean. Stakes measured in
+round 9: reception models on kick labels −0.040, kick models on reception labels −0.012, so
+switching pays only if P(GT = reception) > ~0.76.
+- [ ] Julien: post `docs/organiser_question.md` Q2 TODAY (7 days left).
+- [x] definition check, aggregates only, on the public window's 4 restarts
+      (`scripts/restart_convention.py`, model-free: the restart detector finds only 37 restarts
+      in the real match). Nov 10: where the ball was hidden (2 of 4) it reappears already moving
+      10-12 frames before the GT's first live frame; the nearest player at that frame is
+      2.1-4.1 m away on all 4 (a reception would put one on the ball). -> live ~0.4 s after the
+      kick, NOT at the first reception. **Kick convention confirmed; no retrain.** Posting Q2
+      is still worth it for the tech doc, but nothing waits on it.
+
+## Lead: SkillCorner open data as training matches (Nov 10): licence OK, waiting for Julien's go
+MIT licence, 20 A-League 2024/25 matches, 10 fps broadcast tracking with a per-frame possession
+field (details in `docs/results.md`). Allowed by RULES.md (other games, public).
+- [ ] go / no-go (~half a day): loader -> relabel rule -> score models/ on them, evaluation only.
+      Sensible range (near PFF) = compatible; then train with them and run the usual bar.
+- [ ] `docs/results.md` and the tech doc's data table if it is ever trained on (credit SkillCorner).

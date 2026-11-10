@@ -39,6 +39,19 @@ LGB_PARAMS = dict(objective="multiclass", num_class=3, learning_rate=0.05, num_l
                   seed=0, deterministic=True, force_row_wise=True, num_threads=4)
 ROUNDS = 300
 CLASS_OF = {H: 0, A: 1, D: 2}
+# Experiment (Nov 10): seconds T0 of the spell-balanced frame weights (spell_weights); 0 = off.
+SPELL_T0 = float(os.environ.get("MTAH_SPELL_WEIGHT") or 0)
+SPELL_CAP = 8.0
+
+
+def spell_weights(labels, t0_s=SPELL_T0, cap=SPELL_CAP):
+    """Per-frame training weight t0 / (length of the frame's label run), clipped to [1, cap].
+    spellF1 counts every possession once, whatever its length, but a per-frame loss gives a 1 s
+    possession 1/20 of the say of a 20 s one; this evens that out for runs shorter than t0."""
+    labels = np.asarray(labels)
+    starts = np.r_[0, np.flatnonzero(labels[1:] != labels[:-1]) + 1]
+    lens = np.diff(np.r_[starts, len(labels)])
+    return np.clip(t0_s * FPS / np.repeat(lens, lens), 1.0, cap)
 
 
 @dataclass(frozen=True)
@@ -96,6 +109,8 @@ def training_rows(match, feature_set="base"):
     keep = graded_mask(match) & (match.labels != X)
     keep &= (np.arange(match.n_frames) % SUBSAMPLE) == 0
     y = np.vectorize(CLASS_OF.get)(match.labels[keep])
+    if SPELL_T0 > 0:
+        return X_[keep], y, names, spell_weights(match.labels)[keep]
     return X_[keep], y, names
 
 
@@ -110,8 +125,8 @@ def fit_rows(rows, extra=(), extra_weight=1.0):
     X_ = np.concatenate([r[0] for r in groups])
     y = np.concatenate([r[1] for r in groups])
     w = None
-    if extra:
-        w = np.concatenate([np.full(len(r[1]), 1.0) for r in rows]
+    if extra or len(groups[0]) > 3:   # a 4th element: spell_weights (MTAH_SPELL_WEIGHT)
+        w = np.concatenate([r[3] if len(r) > 3 else np.full(len(r[1]), 1.0) for r in rows]
                            + [np.full(len(r[1]), extra_weight) for r in extra])
     return lgb.train(LGB_PARAMS, lgb.Dataset(X_, y, weight=w, feature_name=groups[0][2]), ROUNDS)
 
@@ -184,7 +199,8 @@ def train(feature_set="base", draws=1, spread=0.0, profile="hackathon", with_pff
                    "feature_set": feature_set, "draws": draws, "spread": spread,
                    "with_pff": with_pff, "with_metrica": with_metrica,
                    "self_train": self_train, "self_train_mode": self_train_mode,
-                   "dead_mix": dead_mix, "train_k": train_k, "params": LGB_PARAMS,
+                   "dead_mix": dead_mix, "train_k": train_k, "spell_weight": [SPELL_T0, SPELL_CAP],
+                   "params": LGB_PARAMS,
                    "rounds": ROUNDS}, f, indent=1)
     print("full model ->", os.path.relpath(FULL_MODEL, ROOT), flush=True)
     for g in sorted(set(groups.values())):
@@ -309,7 +325,7 @@ if __name__ == "__main__":
     ap.add_argument("--train-k", type=int, default=0, help="learning curve: fit on k DFL matches only")
     a = ap.parse_args()
     experiment = (a.draws, a.vary, a.profile, a.with_pff, a.with_metrica, a.self_train, a.dead_mix,
-                  a.train_k) != (1, 0.0, "hackathon", False, False, 0.0, False, 0)
+                  a.train_k, SPELL_T0) != (1, 0.0, "hackathon", False, False, 0.0, False, 0, 0.0)
     if experiment and not os.environ.get("MTAH_MODEL_DIR") and not a.overwrite_submission_model:
         sys.exit("refusing to overwrite the submission model in models/ with experiment options; "
                  "set MTAH_MODEL_DIR=models_exp/<name> (or pass --overwrite-submission-model)")

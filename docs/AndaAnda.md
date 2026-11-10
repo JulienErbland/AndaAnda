@@ -102,6 +102,9 @@ Other methods tried and dropped (full log in `docs/results.md`):
 - ball-gap features;
 - snapping changes to detected controls;
 - Metrica sample games as extra training data;
+- training weights that make short possessions count as much as long ones (the models change
+  possession more often, but the bench score does not move: +0.001), and an 8-member mix of the
+  weighted and unweighted models (+0.0004);
 - self-training on the provided match's tracking (pseudo-labels from our own detector, no GT; it
   gained +0.001, below the adoption bar).
 
@@ -136,7 +139,10 @@ labels the models learn and in the decoder:
   Every stoppage ends a possession, so `H D H` counts as two.
 - **Restarts.** The ball goes live at the kick or throw (DFL's convention), and the restarting
   team owns the next possession. A "dead until the first reception" variant was built and
-  evaluated, then rejected on the bench.
+  evaluated, then rejected on the bench. We also checked the definition on the public window's
+  four restarts, as CHALLENGE.md invites (aggregates only): the ground truth goes live about
+  0.4 s after the ball starts moving, with no player within 2 m of it, so it follows the kick,
+  not the reception. No constant was taken from that check.
 - **Halves.** Each half is decoded independently and is dead until its detected kick-off.
 
 ## 6. Missing and noisy tracking
@@ -173,7 +179,8 @@ visible).
   71 external matches, nothing more.
 - **Earlier practice we dropped.** Before Oct 27, a switch value was once picked by the public
   window's possession rate. We dropped that practice, and the current settings all come from the
-  DFL bench. The choice of dating a change from the new team's first touch (bench labels v2)
+  DFL bench. On Nov 10 two variants tied with the submission on the bench and scored higher on
+  the public window; we kept the submission, since the window may not choose between versions. The choice of dating a change from the new team's first touch (bench labels v2)
   came from looking at the public window. That choice is about what counts as possession, and it
   was checked against PFF's independent labels.
 - **What we never did.** No training, fitting or tuning on the ground truth or the video. No hand
@@ -191,8 +198,12 @@ visible).
   match changes possession less often than the bench (3.32 per live minute, near the bottom of
   the external range).
 - **Hard edge cases.** Possession changes inside a ball gap, interceptions, and kick-offs.
-- **One label definition is a guess.** Whether a restart is `D` until the kick or until the first
-  reception (~1–1.5 s per restart) cannot be settled without the ground truth. We followed DFL.
+- **Label definitions are checked on little.** The kick convention at restarts rests on DFL and
+  on the four restarts of the public window. Our rule for dating a change of possession (the
+  start of control) was not checked against the ground truth.
+- **The bench has stopped separating candidates.** The last variants tried sit within 0.001 of
+  the submission while changing possession 3-5% more often; which rate suits the real match
+  cannot be told without tuning on it.
 - **With more time:**
     - a deep ball detector in the tactical video to fill ball gaps;
     - more training matches from the same competition (team-shape shift);

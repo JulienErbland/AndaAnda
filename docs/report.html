@@ -165,7 +165,7 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
   pipeline stands, where it still fails and what comes next. Part two explains every stage in
   depth: the theory behind each tool, why we chose it, and what it measured on held-out matches.
   Every number is tracked in <a href="results.md"><code>docs/results.md</code></a>.</p>
-  <p class="muted mono" style="font-size:0.8rem">Status as of <!--DATE-->Nov 3, 2026<!--/DATE--></p>
+  <p class="muted mono" style="font-size:0.8rem">Status as of <!--DATE-->Nov 10, 2026<!--/DATE--></p>
   <div class="legend" aria-label="Label colours">
     <span><i style="background:var(--home)"></i>H: home (Barcelona) in possession</span>
     <span><i style="background:var(--away)"></i>A: away (Athletic) in possession</span>
@@ -575,15 +575,22 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
 <section id="next">
   <span class="eyebrow">6 · Plan</span>
   <h2>Next steps</h2>
+  <p><strong>Update, Nov 10.</strong> Two more levers were tried and not adopted (training
+  weights for short possessions, an 8-member mix: see &sect;17), and the restart convention was
+  confirmed. The submission is unchanged. One lead is open: SkillCorner's open data (20 A-League
+  matches, MIT licence) as extra training matches, to be scored as an evaluation-only bench
+  first.</p>
   <p>As of Nov 3 no experiment is queued. Two weeks remain, so the deliverables come first. The
   proposed modelling freeze is Nov 12. The checklist lives in <code>tasks/todo.md</code>.</p>
   <ol>
     <li><strong>Re-base the slow gates</strong> on the submission. Three targets become floors;
     decide whether interceptions at 28% are a regression or a floor to lower.</li>
-    <li><strong>Ask the organisers</strong> (<code>docs/organiser_question.md</code>, not posted
-    yet): is a restart <code>D</code> until the kick or until the first reception? The reception
-    rule is built. An answer before ~Nov 10 can still be acted on: a retrain plus the round-9
-    comparison.</li>
+    <li><strong>Restart convention: settled on Nov 10.</strong> Measured on the public window's
+    four restarts (<code>scripts/restart_convention.py</code>, aggregates only): the ground truth
+    goes live about 0.4 s after the ball starts moving, with the nearest player 2.1&ndash;4.1 m
+    away, so it follows the kick, not the first reception. No retrain. The question to the
+    organisers (<code>docs/organiser_question.md</code>) is still unposted and no longer blocks
+    anything.</li>
     <li><strong>Reproducibility</strong>:
       <ul>
         <li>fresh clone → <code>uv sync</code> → submit → <code>cmp</code> with the current file;</li>
@@ -1044,6 +1051,8 @@ a:focus-visible, input:focus-visible { outline: 2px solid var(--pitch); outline-
       <tr><td>C · minimum Bayes risk decoding (Oct 30)</td><td>Sample paths from a tempered posterior; pick the path with the best expected spellF1</td><td class="num">+0.0002 (1/7) at temp 0.5; down to −0.044</td><td>The correlated per-frame terms make the posterior unreliable; Viterbi already wins.</td></tr>
       <tr><td>D · learned switch costs (Oct 31, iteration 1)</td><td>A second model predicts "change within ±0.5 s" and sets the switch cost per frame</td><td class="num">−0.0008 (3/7)</td><td>Short possessions are the misses, and the evidence barely sees them.</td></tr>
       <tr><td>Temporal CNN alone (Oct 31, iteration 2)</td><td>Dilated 1-D CNN over the feature sequence instead of LightGBM</td><td class="num">+0.002 (4/7)</td><td>On a par alone, but it errs differently: mixed with LightGBM it gains +0.0245 (adopted).</td></tr>
+      <tr><td>Spell-balanced training weights (Nov 10, iteration 4)</td><td>Frames of short possessions weigh more in training (10 s / possession length, capped at 8), since spellF1 counts every possession once</td><td class="num">+0.001 at its best switch (bar +0.005)</td><td>The models change possession more often (bench rate 4.13 vs 3.92, true 4.38), but the extra changes are wrong as often as right.</td></tr>
+      <tr><td>8-member mix (Nov 10, iteration 5)</td><td>Average the four submission models with their four weighted twins</td><td class="num">+0.0004 (4/7)</td><td>The bench no longer separates candidates of this family: three variants within 0.001.</td></tr>
       <tr><td>Switch 30 vs 40 (Oct 31)</td><td>Fewer merges</td><td class="num">−0.0011 over 12 fresh seeds</td><td>A tie, so the status quo (40) stays.</td></tr>
     </tbody>
   </table></div>
